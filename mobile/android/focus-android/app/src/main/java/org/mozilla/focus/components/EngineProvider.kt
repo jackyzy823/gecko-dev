@@ -10,6 +10,7 @@ import mozilla.components.browser.engine.gecko.GeckoEngine
 import mozilla.components.browser.engine.gecko.cookiebanners.GeckoCookieBannersStorage
 import mozilla.components.browser.engine.gecko.cookiebanners.ReportSiteDomainsRepository
 import mozilla.components.browser.engine.gecko.fetch.GeckoViewFetchClient
+import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.DefaultSettings
 import mozilla.components.concept.engine.Engine
 import mozilla.components.concept.fetch.Client
@@ -40,10 +41,10 @@ object EngineProvider {
         return runtime!!
     }
 
-    fun createEngine(context: Context, defaultSettings: DefaultSettings): Engine {
+    fun createEngine(context: Context, store: BrowserStore, defaultSettings: DefaultSettings): Engine {
         val runtime = getOrCreateRuntime(context)
 
-        return GeckoEngine(context, defaultSettings, runtime)
+        return GeckoEngine(context, store, defaultSettings, runtime)
     }
 
     fun createCookieBannerStorage(context: Context): GeckoCookieBannersStorage {

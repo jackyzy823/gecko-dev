@@ -26,6 +26,7 @@ import mozilla.components.browser.engine.gecko.webextension.GeckoWebExtensionExc
 import mozilla.components.browser.engine.gecko.webnotifications.GeckoWebNotificationDelegate
 import mozilla.components.browser.engine.gecko.webpush.GeckoWebPushDelegate
 import mozilla.components.browser.engine.gecko.webpush.GeckoWebPushHandler
+import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.CancellableOperation
 import mozilla.components.concept.engine.Engine
 import mozilla.components.concept.engine.EngineSession
@@ -86,6 +87,7 @@ import java.lang.ref.WeakReference
 @Suppress("LargeClass", "TooManyFunctions")
 class GeckoEngine(
     context: Context,
+    private val store: BrowserStore,
     private val defaultSettings: Settings? = null,
     private val runtime: GeckoRuntime = GeckoRuntime.getDefault(context),
     executorProvider: () -> GeckoWebExecutor = { GeckoWebExecutor(runtime) },
@@ -316,7 +318,7 @@ class GeckoEngine(
                 val updatedExtension = if (geckoExtension != null) {
                     GeckoWebExtension(geckoExtension, runtime).also {
                         it.registerActionHandler(webExtensionActionHandler)
-                        it.registerTabHandler(webExtensionTabHandler, defaultSettings)
+                        it.registerTabHandler(webExtensionTabHandler, defaultSettings, store.state.selectedTab.content.private)
                     }
                 } else {
                     null
@@ -412,7 +414,7 @@ class GeckoEngine(
                 val installedExtension = GeckoWebExtension(extension, runtime)
                 webExtensionDelegate.onInstalled(installedExtension)
                 installedExtension.registerActionHandler(webExtensionActionHandler)
-                installedExtension.registerTabHandler(webExtensionTabHandler, defaultSettings)
+                installedExtension.registerTabHandler(webExtensionTabHandler, defaultSettings, store.state.selectedTab.content.private)
             }
 
             override fun onInstallationFailed(
@@ -453,7 +455,7 @@ class GeckoEngine(
 
                 extensions.forEach { extension ->
                     extension.registerActionHandler(webExtensionActionHandler)
-                    extension.registerTabHandler(webExtensionTabHandler, defaultSettings)
+                    extension.registerTabHandler(webExtensionTabHandler, defaultSettings, store.state.selectedTab.content.private)
                 }
 
                 onSuccess(extensions)
@@ -1401,7 +1403,7 @@ class GeckoEngine(
         val installedExtension = GeckoWebExtension(ext, runtime)
         webExtensionDelegate?.onInstalled(installedExtension)
         installedExtension.registerActionHandler(webExtensionActionHandler)
-        installedExtension.registerTabHandler(webExtensionTabHandler, defaultSettings)
+        installedExtension.registerTabHandler(webExtensionTabHandler, defaultSettings, store.state.selectedTab.content.private)
         onSuccess(installedExtension)
     }
 }

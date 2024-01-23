@@ -32,7 +32,7 @@ class Components(
 ) {
     private val runtime by lazy { GeckoRuntime.create(context) }
 
-    val engine: Engine by lazy { GeckoEngine(context, runtime = runtime) }
+    val engine: Engine by lazy { GeckoEngine(context, store = store, runtime = runtime) }
     val client: Client by lazy { GeckoViewFetchClient(context, runtime = runtime) }
 
     val store: BrowserStore by lazy {

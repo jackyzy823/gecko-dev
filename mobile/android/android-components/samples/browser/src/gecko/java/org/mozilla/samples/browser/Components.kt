@@ -29,7 +29,7 @@ class Components(private val applicationContext: Context) : DefaultComponents(ap
     }
 
     override val engine: Engine by lazy {
-        GeckoEngine(applicationContext, engineSettings, runtime).also {
+        GeckoEngine(applicationContext, store, engineSettings, runtime).also {
             it.installBuiltInWebExtension("borderify@mozac.org", "resource://android/assets/extensions/borderify/") {
                     throwable ->
                 Log.log(Log.Priority.ERROR, "SampleBrowser", throwable, "Failed to install borderify")

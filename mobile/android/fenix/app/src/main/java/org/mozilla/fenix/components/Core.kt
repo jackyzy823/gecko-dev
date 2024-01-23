@@ -161,6 +161,7 @@ class Core(
 
         GeckoEngine(
             context,
+            store,
             defaultSettings,
             geckoRuntime,
         ).also {
