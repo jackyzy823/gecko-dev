@@ -8,6 +8,7 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   ManifestObtainer: "resource://gre/modules/ManifestObtainer.sys.mjs",
+  E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
 });
 
 export class ContentDelegateChild extends GeckoViewActorChild {
@@ -35,28 +36,88 @@ export class ContentDelegateChild extends GeckoViewActorChild {
   handleEvent(aEvent) {
     debug`handleEvent: ${aEvent.type}`;
 
+    function nearestParentAttribute(aNode, aAttribute) {
+      while (aNode && aNode.hasAttribute && !aNode.hasAttribute(aAttribute)) {
+        aNode = aNode.parentNode;
+      }
+      return aNode && aNode.getAttribute && aNode.getAttribute(aAttribute);
+    }
+
+    function createAbsoluteUri(aBaseUri, aUri) {
+      if (!aUri || !aBaseUri || !aBaseUri.displaySpec) {
+        return null;
+      }
+      return Services.io.newURI(aUri, null, aBaseUri).displaySpec;
+    }
+
     switch (aEvent.type) {
-      case "contextmenu": {
-        if (aEvent.defaultPrevented) {
+      case "auxclick":
+        // what about openingwindowinfo?
+        // TODO only handle middle click
+        // TODO  only handle hit on url or media?
+        // TODO what if we want auto scroll feature?
+        if (
+          aEvent.defaultPrevented ||
+          aEvent.button != 1 ||
+          !Services.prefs.getBoolPref("middlemouse.openNewWindow", true)
+        ) {
           return;
         }
 
-        function nearestParentAttribute(aNode, aAttribute) {
-          while (
-            aNode &&
-            aNode.hasAttribute &&
-            !aNode.hasAttribute(aAttribute)
-          ) {
-            aNode = aNode.parentNode;
+        // TODO exclude conteneditable like ClickHandler
+
+        // TODO event.isTrusted?
+
+        const node = aEvent.composedTarget;
+        const baseUri = node.ownerDocument.baseURIObject;
+        const uri = createAbsoluteUri(
+          baseUri,
+          nearestParentAttribute(node, "href")
+        );
+        const elementType = ChromeUtils.getClassName(node);
+        const isImage = elementType === "HTMLImageElement";
+        const isMedia =
+          elementType === "HTMLVideoElement" ||
+          elementType === "HTMLAudioElement";
+        let elementSrc = (isImage || isMedia) && (node.currentSrc || node.src);
+        if (elementSrc) {
+          const isBlob = elementSrc.startsWith("blob:");
+          if (isBlob && !URL.isValidObjectURL(elementSrc)) {
+            elementSrc = null;
           }
-          return aNode && aNode.getAttribute && aNode.getAttribute(aAttribute);
+        }
+        if (uri || isImage || isMedia) {
+          let triggeringPrincipal = node.ownerDocument.nodePrincipal;
+          if (triggeringPrincipal) {
+            triggeringPrincipal =
+              lazy.E10SUtils.serializePrincipal(triggeringPrincipal);
+          }
+          let csp = node.ownerDocument.csp;
+          if (csp) {
+            csp = lazy.E10SUtils.serializeCSP(csp);
+          }
+
+          let referrerInfo = Cc["@mozilla.org/referrer-info;1"].createInstance(
+            Ci.nsIReferrerInfo
+          );
+          referrerInfo.initWithElement(node);
+          referrerInfo = lazy.E10SUtils.serializeReferrerInfo(referrerInfo);
+
+          this.sendAsyncMessage("GeckoView:MiddleClick", {
+            uri,
+            triggeringPrincipal,
+            csp,
+            referrerInfo,
+            // params,
+          });
+          aEvent.preventDefault();
         }
 
-        function createAbsoluteUri(aBaseUri, aUri) {
-          if (!aUri || !aBaseUri || !aBaseUri.displaySpec) {
-            return null;
-          }
-          return Services.io.newURI(aUri, null, aBaseUri).displaySpec;
+        break;
+
+      case "contextmenu": {
+        if (aEvent.defaultPrevented) {
+          return;
         }
 
         const node = aEvent.composedTarget;

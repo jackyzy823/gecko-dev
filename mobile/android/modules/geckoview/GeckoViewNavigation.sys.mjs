@@ -310,7 +310,8 @@ export class GeckoViewNavigation extends GeckoViewModule {
             }
 
             if (
-              !aOpenWindowInfo.isRemote &&
+              // Ref https://searchfox.org/mozilla-central/rev/2537e5eaafaab9a7ef6be5cfc8e9b1e2c747fdfd/browser/base/content/browser.js#6274
+              aOpenWindowInfo && !aOpenWindowInfo.isRemote &&
               aSubject.browser.hasAttribute("remote")
             ) {
               // We cannot start in remote mode when we have an opener.

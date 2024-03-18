@@ -7,6 +7,12 @@ import { GeckoViewActorParent } from "resource://gre/modules/GeckoViewActorParen
 
 const { debug, warn } = GeckoViewUtils.initLogging("ContentDelegateParent");
 
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
+});
+
 export class ContentDelegateParent extends GeckoViewActorParent {
   didDestroy() {
     this._didDestroy = true;
@@ -27,6 +33,30 @@ export class ContentDelegateParent extends GeckoViewActorParent {
       case "GeckoView:DOMFullscreenRequest": {
         this.#requestOrigin = this;
         this.window.windowUtils.remoteFrameFullscreenChanged(this.browser);
+        return null;
+      }
+
+      case "GeckoView:MiddleClick": {
+        const params = {
+          openWindowInfo: null,
+          triggeringPrincipal: lazy.E10SUtils.deserializePrincipal(
+            aMsg.data.triggeringPrincipal
+          ),
+          csp: lazy.E10SUtils.deserializeCSP(aMsg.data.csp),
+          referrerInfo: lazy.E10SUtils.deserializeReferrerInfo(
+            aMsg.data.referrerInfo
+          ),
+        };
+
+        // openURIInFrame can pass referrerInfo
+        this.window.browserDOMWindow.openURIInFrame(
+          Services.io.newURI(aMsg.data.uri),
+          params,
+          Ci.nsIBrowserDOMWindow.OPEN_NEWWINDOW, // where
+          null, //flag
+          null // name
+        );
+
         return null;
       }
     }

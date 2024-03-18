@@ -595,6 +595,7 @@ function startup() {
                 MozFirstContentfulPaint: {},
                 MozPaintStatusReset: {},
                 contextmenu: {},
+                auxclick: {}, // TODO capture? preventdefault? mozSystemGroup?
               },
             },
             allFrames: true,
