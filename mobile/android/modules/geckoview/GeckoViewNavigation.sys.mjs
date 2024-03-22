@@ -205,13 +205,23 @@ export class GeckoViewNavigation extends GeckoViewModule {
           // a privileged principal.
           const isExternal =
             navFlags & Ci.nsIWebNavigation.LOAD_FLAGS_FROM_EXTERNAL;
-          if (!isExternal || Services.io.newURI(uri).schemeIs("content")) {
+          if (!isExternal) {
             // Always use the system principal as the triggering principal
             // for user-initiated (ie. no referrer session and not external)
             // loads. See discussion in bug 1573860.
             triggeringPrincipal =
               Services.scriptSecurityManager.getSystemPrincipal();
           }
+        }
+
+        // is moz-extension safe ? since moz-extension could be third party's extensions url
+        // according to https://blog.mozilla.org/attack-and-defense/2020/06/10/understanding-web-security-checks-in-firefox-part-1/
+        // ExpandedPrincipal is more suitable?
+        const schemes = ["content", "about", "view-source", "moz-extension"];
+        const parsedUri = Services.io.newURI(uri);
+        if (schemes.some(scheme => parsedUri.schemeIs(scheme))) {
+          triggeringPrincipal =
+            Services.scriptSecurityManager.getSystemPrincipal();
         }
 
         if (!triggeringPrincipal) {
