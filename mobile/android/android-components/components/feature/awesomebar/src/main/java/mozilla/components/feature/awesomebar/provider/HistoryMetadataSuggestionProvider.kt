@@ -11,6 +11,7 @@ import mozilla.components.browser.icons.BrowserIcons
 import mozilla.components.browser.icons.IconRequest
 import mozilla.components.concept.awesomebar.AwesomeBar
 import mozilla.components.concept.engine.Engine
+import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
 import mozilla.components.concept.storage.HistoryMetadata
 import mozilla.components.concept.storage.HistoryMetadataStorage
 import mozilla.components.concept.storage.HistoryStorage
@@ -119,7 +120,10 @@ internal suspend fun Iterable<HistoryMetadata>.into(
             description = result.key.url,
             editSuggestion = if (showEditSuggestion) result.key.url else null,
             onSuggestionClicked = {
-                loadUrlUseCase.invoke(result.key.url)
+                loadUrlUseCase.invoke(
+                    result.key.url,
+                    flags = LoadUrlFlags.select(LoadUrlFlags.LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL),
+                )
                 emitHistorySuggestionClickedFact()
             },
         )

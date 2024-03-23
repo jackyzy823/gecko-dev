@@ -1091,6 +1091,7 @@ package org.mozilla.geckoview {
     field public static final int LOAD_FLAGS_BYPASS_CLASSIFIER = 16;
     field public static final int LOAD_FLAGS_BYPASS_LOAD_URI_DELEGATE = 128;
     field public static final int LOAD_FLAGS_BYPASS_PROXY = 2;
+    field public static final int LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL = 256;
     field public static final int LOAD_FLAGS_EXTERNAL = 4;
     field public static final int LOAD_FLAGS_FORCE_ALLOW_DATA_URI = 32;
     field public static final int LOAD_FLAGS_NONE = 0;

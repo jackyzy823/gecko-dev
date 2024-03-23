@@ -23,6 +23,7 @@ while a user gesture was active (e.g., a tap).
 - ⚠️ Deprecated [`RuntimeTelemetry`][125.5], [`GeckoRuntimeSettings.getTelemetryDelegate`][125.6] and [`GeckoRuntimeSettings.telemetryDelegate`][125.7], to be removed in v127.
 ([bug 1877836]({{bugzilla}}1877836))
 - Added [`WebExtension.MetaData.grantedOptionalPermissions`][125.8] and [`WebExtension.MetaData.grantedOptionalOrigins`][125.9] which expose the granted optional and origin optional permissions of an extension ([bug 1879543]({{bugzilla}}1879543)).
+- Add [GeckoSession.LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL][125.10]
 
 [125.1]: {{javadoc_uri}}/GeckoSession.NavigationDelegate#onLocationChange(org.mozilla.geckoview.GeckoSession,java.lang.String,java.util.List)
 [125.2]: {{javadoc_uri}}/GeckoSession.NavigationDelegate#onLocationChange(org.mozilla.geckoview.GeckoSession,java.lang.String,java.util.List,boolean)
@@ -33,6 +34,7 @@ while a user gesture was active (e.g., a tap).
 [125.7]: {{javadoc_uri}}/GeckoRuntimeSettings.html#telemetryDelegate
 [125.8]: {{javadoc_uri}}/WebExtension.MetaData.html#grantedOptionalPermissions
 [125.9]: {{javadoc_uri}}/WebExtension.MetaData.html#grantedOptionalOrigins
+[125.10]: {{javadoc_uri}}/GeckoSession.html#LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL
 
 ## v124
 
@@ -1540,4 +1542,4 @@ to allow adding gecko profiler markers.
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport(android.content.Context,android.os.Bundle,java.lang.String)
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: fc9fd590333bebf38058b7abddbb7a860cd6e4de
+[api-version]: 9bf9197a4772e04c118e53ef25353c835c9488ea

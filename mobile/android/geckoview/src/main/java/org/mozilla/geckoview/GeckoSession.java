@@ -1925,6 +1925,7 @@ public class GeckoSession {
         LOAD_FLAGS_FORCE_ALLOW_DATA_URI,
         LOAD_FLAGS_REPLACE_HISTORY,
         LOAD_FLAGS_BYPASS_LOAD_URI_DELEGATE,
+        LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL,
       })
   public @interface LoadFlags {}
 
@@ -1963,6 +1964,9 @@ public class GeckoSession {
 
   /** This load should bypass the NavigationDelegate.onLoadRequest. */
   public static final int LOAD_FLAGS_BYPASS_LOAD_URI_DELEGATE = 1 << 7;
+
+  /** This flag prevent the owner principal from being inherited for this load **/
+  public static final int LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL = 1 << 8;
 
   /**
    * Filter headers according to the CORS safelisted rules.

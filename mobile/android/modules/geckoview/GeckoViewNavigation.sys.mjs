@@ -77,6 +77,9 @@ function convertFlags(aFlags) {
   if (aFlags & (1 << 7)) {
     navFlags |= Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_LOAD_URI_DELEGATE;
   }
+  if (aFlags & (1 << 8)) {
+    navFlags |= Ci.nsIWebNavigation.LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL;
+  }
   return navFlags;
 }
 
@@ -184,20 +187,35 @@ export class GeckoViewNavigation extends GeckoViewModule {
         navFlags |= Ci.nsIWebNavigation.LOAD_FLAGS_BYPASS_LOAD_URI_DELEGATE;
 
         let triggeringPrincipal, referrerInfo, csp;
+
+        if (
+          navFlags & Ci.nsIWebNavigation.LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL
+        ) {
+          triggeringPrincipal =
+            Services.scriptSecurityManager.getSystemPrincipal();
+        }
+
         if (referrerSessionId) {
-          const referrerWindow = Services.ww.getWindowByName(referrerSessionId);
-          triggeringPrincipal = referrerWindow.browser.contentPrincipal;
-          csp = referrerWindow.browser.csp;
+          // Skip means manually load a non-related URL just in the same session/tab.
+          if (!triggeringPrincipal) {
+            const referrerWindow =
+              Services.ww.getWindowByName(referrerSessionId);
 
-          const referrerPolicy = referrerWindow.browser.referrerInfo
-            ? referrerWindow.browser.referrerInfo.referrerPolicy
-            : Ci.nsIReferrerInfo.EMPTY;
+            triggeringPrincipal = referrerWindow.browser.contentPrincipal;
 
-          referrerInfo = new lazy.ReferrerInfo(
-            referrerPolicy,
-            true,
-            referrerWindow.browser.documentURI
-          );
+            // TODO should `csp` also be skipped?
+            csp = referrerWindow.browser.csp;
+
+            const referrerPolicy = referrerWindow.browser.referrerInfo
+              ? referrerWindow.browser.referrerInfo.referrerPolicy
+              : Ci.nsIReferrerInfo.EMPTY;
+
+            referrerInfo = new lazy.ReferrerInfo(
+              referrerPolicy,
+              true,
+              referrerWindow.browser.documentURI
+            );
+          }
         } else if (referrerUri) {
           referrerInfo = createReferrerInfo(referrerUri);
         } else {

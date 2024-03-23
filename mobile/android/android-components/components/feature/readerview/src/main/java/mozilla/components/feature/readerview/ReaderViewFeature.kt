@@ -16,6 +16,7 @@ import mozilla.components.browser.state.selector.selectedTab
 import mozilla.components.browser.state.state.TabSessionState
 import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.Engine
+import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
 import mozilla.components.concept.engine.webextension.MessageHandler
 import mozilla.components.concept.engine.webextension.Port
 import mozilla.components.feature.readerview.internal.ReaderViewConfig
@@ -145,7 +146,13 @@ class ReaderViewFeature(
                     return@let
                 }
 
-                store.dispatch(EngineAction.LoadUrlAction(it.id, readerUrl))
+                store.dispatch(
+                    EngineAction.LoadUrlAction(
+                        it.id,
+                        readerUrl,
+                        flags = LoadUrlFlags.select(LoadUrlFlags.LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL),
+                    ),
+                )
                 store.dispatch(ReaderAction.UpdateReaderActiveAction(it.id, true))
             }
         }

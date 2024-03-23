@@ -9,6 +9,7 @@ import mozilla.components.browser.icons.BrowserIcons
 import mozilla.components.browser.icons.IconRequest
 import mozilla.components.concept.awesomebar.AwesomeBar
 import mozilla.components.concept.awesomebar.AwesomeBar.Suggestion.Flag
+import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
 import mozilla.components.concept.sync.DeviceType
 import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.feature.syncedtabs.ext.getActiveDeviceTabs
@@ -74,7 +75,10 @@ class SyncedTabsStorageSuggestionProvider(
                 title = result.tab.title,
                 description = result.clientName,
                 onSuggestionClicked = {
-                    loadUrlUseCase.invoke(result.tab.url)
+                    loadUrlUseCase.invoke(
+                        result.tab.url,
+                        flags = LoadUrlFlags.select(LoadUrlFlags.LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL),
+                    )
                     emitSyncedTabSuggestionClickedFact()
                 },
             )

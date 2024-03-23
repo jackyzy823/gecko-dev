@@ -9,6 +9,7 @@ import mozilla.appservices.suggest.Suggestion
 import mozilla.appservices.suggest.SuggestionProvider
 import mozilla.appservices.suggest.SuggestionQuery
 import mozilla.components.concept.awesomebar.AwesomeBar
+import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
 import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.support.ktx.kotlin.toBitmap
 import java.util.UUID
@@ -131,7 +132,10 @@ class FxSuggestSuggestionProvider(
                     null
                 },
                 onSuggestionClicked = {
-                    loadUrlUseCase.invoke(details.url)
+                    loadUrlUseCase.invoke(
+                        details.url,
+                        flags = LoadUrlFlags.select(LoadUrlFlags.LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL),
+                    )
                 },
                 score = Int.MIN_VALUE,
                 metadata = buildMap {
