@@ -119,6 +119,7 @@ class SearchDialogController(
             from = BrowserDirection.FromSearchDialog,
             engine = searchEngine,
             forceSearch = !isDefaultEngine,
+            flags = LoadUrlFlags.select(LoadUrlFlags.DISALLOW_INHERIT_PARENT),
             requestDesktopMode = fromHomeScreen && activity.settings().openNextTabInDesktopMode,
         )
 

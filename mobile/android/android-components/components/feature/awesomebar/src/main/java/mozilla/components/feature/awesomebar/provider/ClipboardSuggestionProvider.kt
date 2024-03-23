@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import mozilla.components.concept.awesomebar.AwesomeBar
 import mozilla.components.concept.engine.Engine
+import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
 import mozilla.components.feature.awesomebar.facts.emitClipboardSuggestionClickedFact
 import mozilla.components.feature.session.SessionUseCases
 import mozilla.components.support.utils.WebURLFinder
@@ -72,7 +73,10 @@ class ClipboardSuggestionProvider(
                 icon = icon ?: getSearchIcon(),
                 title = title,
                 onSuggestionClicked = {
-                    loadUrlUseCase.invoke(url)
+                    loadUrlUseCase.invoke(
+                        url,
+                        flags = LoadUrlFlags.select(LoadUrlFlags.DISALLOW_INHERIT_PARENT),
+                    )
                     emitClipboardSuggestionClickedFact()
                 },
             ),

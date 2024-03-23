@@ -206,7 +206,7 @@ class GeckoEngineSession(
                 .headerFilter(headerFilter)
         }
 
-        if (parent != null) {
+        if (parent != null && !LoadUrlFlags.contains(LoadUrlFlags.DISALLOW_INHERIT_PARENT)) {
             loader.referrer((parent as GeckoEngineSession).geckoSession)
         }
 
@@ -1874,6 +1874,10 @@ internal fun EngineSession.LoadUrlFlags.getGeckoFlags(): Int {
 
     if (contains(ALLOW_JAVASCRIPT_URL)) {
         newValue -= ALLOW_JAVASCRIPT_URL
+    }
+
+    if (contains(DISALLOW_INHERIT_PARENT)) {
+        newValue -= DISALLOW_INHERIT_PARENT
     }
 
     return newValue

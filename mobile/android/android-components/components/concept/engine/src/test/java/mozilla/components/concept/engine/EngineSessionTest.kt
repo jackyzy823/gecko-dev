@@ -816,6 +816,7 @@ class EngineSessionTest {
         assertTrue(LoadUrlFlags.all().contains(LoadUrlFlags.select(LoadUrlFlags.LOAD_FLAGS_BYPASS_LOAD_URI_DELEGATE).value))
         assertTrue(LoadUrlFlags.all().contains(LoadUrlFlags.select(LoadUrlFlags.ALLOW_ADDITIONAL_HEADERS).value))
         assertTrue(LoadUrlFlags.all().contains(LoadUrlFlags.select(LoadUrlFlags.ALLOW_JAVASCRIPT_URL).value))
+        assertTrue(LoadUrlFlags.all().contains(LoadUrlFlags.select(LoadUrlFlags.DISALLOW_INHERIT_PARENT).value))
 
         val flags = LoadUrlFlags.select(LoadUrlFlags.EXTERNAL)
         assertTrue(flags.contains(LoadUrlFlags.EXTERNAL))
@@ -829,6 +830,7 @@ class EngineSessionTest {
         assertFalse(flags.contains(LoadUrlFlags.LOAD_FLAGS_BYPASS_LOAD_URI_DELEGATE))
         assertFalse(flags.contains(LoadUrlFlags.ALLOW_ADDITIONAL_HEADERS))
         assertFalse(flags.contains(LoadUrlFlags.ALLOW_JAVASCRIPT_URL))
+        assertFalse(flags.contains(LoadUrlFlags.DISALLOW_INHERIT_PARENT))
     }
 
     @Test

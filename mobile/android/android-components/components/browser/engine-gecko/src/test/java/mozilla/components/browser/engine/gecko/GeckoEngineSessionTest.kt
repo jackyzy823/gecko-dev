@@ -600,6 +600,15 @@ class GeckoEngineSessionTest {
             GeckoSession.Loader().uri("http://www.mozilla.org").referrer(parentEngineSession.geckoSession),
         )
 
+        engineSession.loadUrl(
+            "http://www.mozilla.org",
+            parent = parentEngineSession,
+            flags = LoadUrlFlags.select(LoadUrlFlags.DISALLOW_INHERIT_PARENT)
+        )
+        verify(geckoSession).load(
+            GeckoSession.Loader().uri("http://www.mozilla.org"),
+        )
+
         val extraHeaders = mapOf("X-Extra-Header" to "true")
         engineSession.loadUrl("http://www.mozilla.org", additionalHeaders = extraHeaders)
         verify(geckoSession).load(
@@ -676,6 +685,7 @@ class GeckoEngineSessionTest {
         assertTrue(flags.contains(LoadUrlFlags.LOAD_FLAGS_BYPASS_LOAD_URI_DELEGATE))
         assertFalse(flags.contains(LoadUrlFlags.ALLOW_ADDITIONAL_HEADERS))
         assertFalse(flags.contains(LoadUrlFlags.ALLOW_JAVASCRIPT_URL))
+        assertFalse(flags.contains(LoadUrlFlags.DISALLOW_INHERIT_PARENT))
     }
 
     @Test
