@@ -288,6 +288,21 @@ bool nsLocalFile::FillStatCache() {
     return false;
   }
 
+#ifdef ANDROID
+  if (StringBeginsWith(mPath, "content://"_ns)) {
+    int fd = java::GeckoAppShell::OpenContentFile(mPath);
+    if (fd < 0) {
+      return false;
+    }
+    if (FSTAT(fd, &mCachedStat) == -1) {
+      close(fd);
+      return false;
+    }
+    close(fd);
+    return true;
+  }
+#endif
+
   if (STAT(mPath.get(), &mCachedStat) == -1) {
     // try lstat it may be a symlink
     if (LSTAT(mPath.get(), &mCachedStat) == -1) {
@@ -338,7 +353,15 @@ nsLocalFile::InitWithNativePath(const nsACString& aFilePath) {
           + Substring(aFilePath, 1);
     }
   } else {
-    if (aFilePath.IsEmpty() || aFilePath.First() != '/') {
+    if (aFilePath.IsEmpty() ||
+#ifdef ANDROID
+        (
+#endif
+            aFilePath.First() != '/'
+#ifdef ANDROID
+            && !StringBeginsWith(aFilePath, "content://"_ns))
+#endif
+    ) {
       return NS_ERROR_FILE_UNRECOGNIZED_PATH;
     }
     mPath = aFilePath;
@@ -438,7 +461,24 @@ nsLocalFile::OpenNSPRFileDesc(int32_t aFlags, int32_t aMode,
   if (!FilePreferences::IsAllowedPath(mPath)) {
     return NS_ERROR_FILE_ACCESS_DENIED;
   }
-  *aResult = PR_Open(mPath.get(), aFlags, aMode);
+#ifdef ANDROID
+  if (StringBeginsWith(mPath, "content://"_ns)) {
+    int fd = java::GeckoAppShell::OpenContentFile(mPath);
+    if (fd == -1) {
+      // TODO NS_ERROR_FILE_NOT_FOUND or NS_ERROR_FILE_INVALID_HANDLE?
+      return NS_ERROR_FAILURE;
+    }
+    // create a PRFileDesc object from the raw fd.
+    // currently we ignore mode and it is always read-only, because this is only
+    // used by DOM File / FilePicker.
+    *aResult = PR_ImportFile(PROsfd(fd));
+  } else {
+#endif
+    *aResult = PR_Open(mPath.get(), aFlags, aMode);
+#ifdef ANDROID
+  }
+#endif
+
   if (!*aResult) {
     return NS_ErrorAccordingToNSPR();
   }
@@ -461,7 +501,16 @@ nsLocalFile::OpenANSIFileDesc(const char* aMode, FILE** aResult) {
   if (!FilePreferences::IsAllowedPath(mPath)) {
     return NS_ERROR_FILE_ACCESS_DENIED;
   }
-  *aResult = fopen(mPath.get(), aMode);
+
+#ifdef ANDROID
+  if (StringBeginsWith(mPath, "content://"_ns)) {
+    return NS_ERROR_NOT_IMPLEMENTED;
+  } else {
+#endif
+    *aResult = fopen(mPath.get(), aMode);
+#ifdef ANDROID
+  }
+#endif
   if (!*aResult) {
     return NS_ERROR_FAILURE;
   }
@@ -654,6 +703,16 @@ void nsLocalFile::LocateNativeLeafName(nsACString::const_iterator& aBegin,
 
 NS_IMETHODIMP
 nsLocalFile::GetNativeLeafName(nsACString& aLeafName) {
+#ifdef ANDROID
+  // TODO webkitRelativePath is undefined <- it should be undefined!
+  if (StringBeginsWith(mPath, "content://"_ns)) {
+    auto fileName = java::GeckoAppShell::GetContentFileName(mPath);
+    if (fileName && fileName->Length() > 0) {
+      aLeafName = fileName->ToCString();
+      return NS_OK;
+    }
+  }
+#endif
   nsACString::const_iterator begin, end;
   LocateNativeLeafName(begin, end);
   aLeafName = Substring(begin, end);
@@ -1193,7 +1252,21 @@ nsresult nsLocalFile::GetTimeImpl(PRTime* aTime,
   StatFn statFn = aFollowLinks ? &STAT : &LSTAT;
 
   struct STAT fileStats {};
-  if (statFn(mPath.get(), &fileStats) < 0) {
+#ifdef ANDROID
+  if (StringBeginsWith(mPath, "content://"_ns)) {
+    int fd = java::GeckoAppShell::OpenContentFile(mPath);
+    if (fd < 0) {
+      return NS_ERROR_FAILURE;
+    }
+    if (FSTAT(fd, &fileStats) == -1) {
+      close(fd);
+      return NSRESULT_FOR_ERRNO();
+    }
+    close(fd);
+  } else
+#endif
+
+      if (statFn(mPath.get(), &fileStats) < 0) {
     return NSRESULT_FOR_ERRNO();
   }
 
@@ -1427,6 +1500,7 @@ nsLocalFile::SetPermissionsOfLink(uint32_t aPermissions) {
 
 NS_IMETHODIMP
 nsLocalFile::GetFileSize(int64_t* aFileSize) {
+  // TODO use fd (currently) or  ContentResolver _size query?
   if (NS_WARN_IF(!aFileSize)) {
     return NS_ERROR_INVALID_ARG;
   }
@@ -1731,6 +1805,21 @@ nsLocalFile::Exists(bool* aResult) {
   if (NS_WARN_IF(!aResult)) {
     return NS_ERROR_INVALID_ARG;
   }
+
+#ifdef ANDROID
+  // ALWAYS EXISTS for content://
+  // Is this right??
+  if (StringBeginsWith(mPath, "content://"_ns)) {
+    // int fd = java::GeckoAppShell::OpenContentFile(mPath);
+    // if (fd < 0) {
+    //   *aResult = false;
+    //   return NS_OK; // or? NS_ERROR_FILE_NOT_FOUND
+    // }
+    // close(fd);
+    *aResult = true;
+    return NS_OK;
+  }
+#endif
 
   *aResult = (access(mPath.get(), F_OK) == 0);
   return NS_OK;

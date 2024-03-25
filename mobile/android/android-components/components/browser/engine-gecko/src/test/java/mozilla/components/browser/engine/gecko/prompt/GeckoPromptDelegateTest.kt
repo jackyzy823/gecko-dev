@@ -709,9 +709,6 @@ class GeckoPromptDelegateTest {
 
         val promptDelegate = spy(GeckoPromptDelegate(mockSession))
 
-        // Prevent the file from being copied
-        doReturn(mockUri).`when`(promptDelegate).toFileUri(any(), any())
-
         mockSession.register(
             object : EngineSession.Observer {
                 override fun onPromptRequest(promptRequest: PromptRequest) {

@@ -6327,6 +6327,7 @@ public class GeckoSession {
         return super.confirm();
       }
 
+      // Return file path of ContentUri if query _data successfully or ContentUri itself if failed.
       private static String getFile(final @NonNull Context context, final @NonNull Uri uri) {
         if (uri == null) {
           return null;
@@ -6343,12 +6344,12 @@ public class GeckoSession {
                 /* args */ null, /* sort */
                 null);
         if (cur == null) {
-          return null;
+          return uri.toString();
         }
         try {
           final int idx = cur.getColumnIndex("_data");
           if (idx < 0 || !cur.moveToFirst()) {
-            return null;
+            return uri.toString();
           }
           do {
             try {
@@ -6362,7 +6363,7 @@ public class GeckoSession {
         } finally {
           cur.close();
         }
-        return null;
+        return uri.toString();
       }
     }
 

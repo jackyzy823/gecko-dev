@@ -29,10 +29,12 @@
 #  endif
 #  define STAT stat64
 #  define LSTAT lstat64
+#  define FSTAT fstat64
 #  define HAVE_STATS64 1
 #else
 #  define STAT stat
 #  define LSTAT lstat
+#  define FSTAT fstat
 #endif
 
 #if defined(HAVE_SYS_QUOTA_H) && defined(HAVE_LINUX_QUOTA_H)
