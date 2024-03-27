@@ -8242,7 +8242,7 @@
 # opposed to touch/pen/etc.).
 - name: layout.accessiblecaret.hide_carets_for_mouse_input
   type: bool
-  value: true
+  value: @IS_NOT_ANDROID@
   mirror: always
 
 # CSS attributes (width, height, margin-left) of the AccessibleCaret in CSS
