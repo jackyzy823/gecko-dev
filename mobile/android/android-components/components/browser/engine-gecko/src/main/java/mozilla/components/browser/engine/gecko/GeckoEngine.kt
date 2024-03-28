@@ -316,9 +316,9 @@ class GeckoEngine(
         runtime.webExtensionController.update((extension as GeckoWebExtension).nativeExtension).then(
             { geckoExtension ->
                 val updatedExtension = if (geckoExtension != null) {
-                    GeckoWebExtension(geckoExtension, runtime).also {
+                    GeckoWebExtension(geckoExtension, runtime, store).also {
                         it.registerActionHandler(webExtensionActionHandler)
-                        it.registerTabHandler(webExtensionTabHandler, defaultSettings, store.state.selectedTab.content.private)
+                        it.registerTabHandler(webExtensionTabHandler, defaultSettings)
                     }
                 } else {
                     null
@@ -344,7 +344,7 @@ class GeckoEngine(
 
         val promptDelegate = object : WebExtensionController.PromptDelegate {
             override fun onInstallPrompt(ext: org.mozilla.geckoview.WebExtension): GeckoResult<AllowOrDeny> {
-                val extension = GeckoWebExtension(ext, runtime)
+                val extension = GeckoWebExtension(ext, runtime, store)
                 val result = GeckoResult<AllowOrDeny>()
 
                 webExtensionDelegate.onInstallPermissionRequest(extension) { allow ->
@@ -362,8 +362,8 @@ class GeckoEngine(
             ): GeckoResult<AllowOrDeny>? {
                 val result = GeckoResult<AllowOrDeny>()
                 webExtensionDelegate.onUpdatePermissionRequest(
-                    GeckoWebExtension(current, runtime),
-                    GeckoWebExtension(updated, runtime),
+                    GeckoWebExtension(current, runtime, store),
+                    GeckoWebExtension(updated, runtime, store),
                     newPermissions.toList() + newOrigins.toList(),
                 ) { allow ->
                     if (allow) result.complete(AllowOrDeny.ALLOW) else result.complete(AllowOrDeny.DENY)
@@ -378,7 +378,7 @@ class GeckoEngine(
             ): GeckoResult<AllowOrDeny>? {
                 val result = GeckoResult<AllowOrDeny>()
                 webExtensionDelegate.onOptionalPermissionsRequest(
-                    GeckoWebExtension(extension, runtime),
+                    GeckoWebExtension(extension, runtime, store),
                     permissions.toList() + origins.toList(),
                 ) { allow ->
                     if (allow) result.complete(AllowOrDeny.ALLOW) else result.complete(AllowOrDeny.DENY)
@@ -395,26 +395,26 @@ class GeckoEngine(
 
         val addonManagerDelegate = object : WebExtensionController.AddonManagerDelegate {
             override fun onDisabled(extension: org.mozilla.geckoview.WebExtension) {
-                webExtensionDelegate.onDisabled(GeckoWebExtension(extension, runtime))
+                webExtensionDelegate.onDisabled(GeckoWebExtension(extension, runtime, store))
             }
 
             override fun onEnabled(extension: org.mozilla.geckoview.WebExtension) {
-                webExtensionDelegate.onEnabled(GeckoWebExtension(extension, runtime))
+                webExtensionDelegate.onEnabled(GeckoWebExtension(extension, runtime, store))
             }
 
             override fun onReady(extension: org.mozilla.geckoview.WebExtension) {
-                webExtensionDelegate.onReady(GeckoWebExtension(extension, runtime))
+                webExtensionDelegate.onReady(GeckoWebExtension(extension, runtime, store))
             }
 
             override fun onUninstalled(extension: org.mozilla.geckoview.WebExtension) {
-                webExtensionDelegate.onUninstalled(GeckoWebExtension(extension, runtime))
+                webExtensionDelegate.onUninstalled(GeckoWebExtension(extension, runtime, store))
             }
 
             override fun onInstalled(extension: org.mozilla.geckoview.WebExtension) {
-                val installedExtension = GeckoWebExtension(extension, runtime)
+                val installedExtension = GeckoWebExtension(extension, runtime, store)
                 webExtensionDelegate.onInstalled(installedExtension)
                 installedExtension.registerActionHandler(webExtensionActionHandler)
-                installedExtension.registerTabHandler(webExtensionTabHandler, defaultSettings, store.state.selectedTab.content.private)
+                installedExtension.registerTabHandler(webExtensionTabHandler, defaultSettings)
             }
 
             override fun onInstallationFailed(
@@ -450,12 +450,12 @@ class GeckoEngine(
             {
                 val extensions = it?.map {
                         extension ->
-                    GeckoWebExtension(extension, runtime)
+                    GeckoWebExtension(extension, runtime, store)
                 } ?: emptyList()
 
                 extensions.forEach { extension ->
                     extension.registerActionHandler(webExtensionActionHandler)
-                    extension.registerTabHandler(webExtensionTabHandler, defaultSettings, store.state.selectedTab.content.private)
+                    extension.registerTabHandler(webExtensionTabHandler, defaultSettings)
                 }
 
                 onSuccess(extensions)
@@ -479,7 +479,7 @@ class GeckoEngine(
     ) {
         runtime.webExtensionController.enable((extension as GeckoWebExtension).nativeExtension, source.id).then(
             {
-                val enabledExtension = GeckoWebExtension(it!!, runtime)
+                val enabledExtension = GeckoWebExtension(it!!, runtime, store)
                 onSuccess(enabledExtension)
                 GeckoResult<Void>()
             },
@@ -501,7 +501,7 @@ class GeckoEngine(
     ) {
         runtime.webExtensionController.disable((extension as GeckoWebExtension).nativeExtension, source.id).then(
             {
-                val disabledExtension = GeckoWebExtension(it!!, runtime)
+                val disabledExtension = GeckoWebExtension(it!!, runtime, store)
                 onSuccess(disabledExtension)
                 GeckoResult<Void>()
             },
@@ -534,7 +534,7 @@ class GeckoEngine(
                         ),
                     )
                 } else {
-                    val ext = GeckoWebExtension(geckoExtension, runtime)
+                    val ext = GeckoWebExtension(geckoExtension, runtime, store)
                     webExtensionDelegate?.onAllowedInPrivateBrowsingChanged(ext)
                     onSuccess(ext)
                 }
@@ -1390,6 +1390,7 @@ class GeckoEngine(
             GeckoWebExtension(
                 this,
                 runtime,
+                store,
             )
         } else {
             null
@@ -1400,10 +1401,10 @@ class GeckoEngine(
         ext: org.mozilla.geckoview.WebExtension,
         onSuccess: ((WebExtension) -> Unit),
     ) {
-        val installedExtension = GeckoWebExtension(ext, runtime)
+        val installedExtension = GeckoWebExtension(ext, runtime, store)
         webExtensionDelegate?.onInstalled(installedExtension)
         installedExtension.registerActionHandler(webExtensionActionHandler)
-        installedExtension.registerTabHandler(webExtensionTabHandler, defaultSettings, store.state.selectedTab.content.private)
+        installedExtension.registerTabHandler(webExtensionTabHandler, defaultSettings)
         onSuccess(installedExtension)
     }
 }

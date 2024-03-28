@@ -8,6 +8,8 @@ import android.graphics.Bitmap
 import androidx.annotation.VisibleForTesting
 import mozilla.components.browser.engine.gecko.GeckoEngineSession
 import mozilla.components.browser.engine.gecko.await
+import mozilla.components.browser.state.selector.selectedTab
+import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.Settings
 import mozilla.components.concept.engine.webextension.Action
@@ -35,6 +37,7 @@ import org.mozilla.geckoview.WebExtension.Action as GeckoNativeWebExtensionActio
 class GeckoWebExtension(
     val nativeExtension: GeckoNativeWebExtension,
     val runtime: GeckoRuntime,
+    val store: BrowserStore,
 ) : WebExtension(nativeExtension.id, nativeExtension.location, true) {
 
     private val connectedPorts: MutableMap<PortId, GeckoPort> = mutableMapOf()
@@ -253,7 +256,7 @@ class GeckoWebExtension(
     /**
      * See [WebExtension.registerTabHandler].
      */
-    override fun registerTabHandler(tabHandler: TabHandler, defaultSettings: Settings?, privateMode: Boolean) {
+    override fun registerTabHandler(tabHandler: TabHandler, defaultSettings: Settings?) {
         val tabDelegate = object : GeckoNativeWebExtension.TabDelegate {
 
             override fun onNewTab(
@@ -262,7 +265,7 @@ class GeckoWebExtension(
             ): GeckoResult<GeckoSession>? {
                 val geckoEngineSession = GeckoEngineSession(
                     runtime,
-                    privateMode = privateMode,
+                    privateMode = store.state.selectedTab?.content?.private ?: false,
                     defaultSettings = defaultSettings,
                     openGeckoSession = false,
                 )
