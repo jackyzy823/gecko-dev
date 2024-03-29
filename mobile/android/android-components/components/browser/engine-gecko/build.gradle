@@ -61,6 +61,7 @@ android {
 ext.allowMetricsFromAAR = true
 
 dependencies {
+    implementation project(':browser-state')
     implementation project(':concept-engine')
     implementation project(':concept-fetch')
     implementation project(':support-ktx')
@@ -85,6 +86,7 @@ dependencies {
     testImplementation ComponentsDependencies.testing_robolectric
     testImplementation ComponentsDependencies.testing_coroutines
     testImplementation ComponentsDependencies.testing_mockwebserver
+    testImplementation ComponentsDependencies.testing_mockk
     testImplementation project(':support-test')
     testImplementation project(':tooling-fetch-tests')
 

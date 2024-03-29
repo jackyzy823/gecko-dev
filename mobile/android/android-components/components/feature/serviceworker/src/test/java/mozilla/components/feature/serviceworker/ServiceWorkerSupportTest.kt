@@ -7,6 +7,7 @@ package mozilla.components.feature.serviceworker
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import mozilla.components.browser.engine.gecko.GeckoEngine
 import mozilla.components.browser.state.state.SessionState
+import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.concept.engine.DefaultSettings
 import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
@@ -27,7 +28,8 @@ class ServiceWorkerSupportTest {
     fun `GIVEN service worker support is installed WHEN runtime is called to open a new window THEN do so and return a new EngineSession`() {
         val runtime = GeckoRuntime.getDefault(testContext)
         val settings = DefaultSettings()
-        val engine = GeckoEngine(testContext, runtime = runtime, defaultSettings = settings)
+        val store = BrowserStore()
+        val engine = GeckoEngine(testContext, store = store, runtime = runtime, defaultSettings = settings)
         val addNewTabUseCase = mock<AddNewTabUseCase>()
         ServiceWorkerSupport.install(engine, addNewTabUseCase)
 

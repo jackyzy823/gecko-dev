@@ -86,7 +86,7 @@ class FullRestoreTest {
 
     private fun createEngine(): Engine {
         return runBlocking(Dispatchers.Main) {
-            GeckoEngine(context)
+            GeckoEngine(context, store = BrowserStore())
         }
     }
 

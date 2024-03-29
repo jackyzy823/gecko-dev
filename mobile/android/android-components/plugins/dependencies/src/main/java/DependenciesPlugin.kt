@@ -22,6 +22,7 @@ object Versions {
     const val mozilla_glean = "58.1.0"
 
     const val junit = "4.13.2"
+    const val mockk = "1.13.10"
     const val robolectric = "4.11.1"
     const val mockito = "5.11.0"
     const val maven_ant_tasks = "2.1.3"
@@ -101,6 +102,7 @@ object ComponentsDependencies {
     const val kotlin_json = "org.jetbrains.kotlinx:kotlinx-serialization-json:${Versions.serialization}"
 
     const val testing_junit = "junit:junit:${Versions.junit}"
+    const val testing_mockk = "io.mockk:mockk:${Versions.mockk}"
     const val testing_robolectric = "org.robolectric:robolectric:${Versions.robolectric}"
     const val testing_mockito = "org.mockito:mockito-core:${Versions.mockito}"
     const val testing_mockwebserver = "com.squareup.okhttp3:mockwebserver:${Versions.okhttp}"
