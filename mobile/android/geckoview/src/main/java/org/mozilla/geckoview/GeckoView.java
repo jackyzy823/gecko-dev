@@ -65,6 +65,14 @@ import org.mozilla.gecko.InputMethods;
 import org.mozilla.gecko.SurfaceViewWrapper;
 import org.mozilla.gecko.util.ThreadUtils;
 
+import android.view.ScrollCaptureSession;
+import android.view.ScrollCaptureCallback;
+import android.os.CancellationSignal;
+import java.util.function.Consumer;
+import java.io.ByteArrayOutputStream;
+import android.util.Base64;
+import android.graphics.BitmapFactory;
+
 @UiThread
 public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfaceProvider {
   private static final String LOGTAG = "GeckoView";
@@ -295,6 +303,11 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
       mAutofillDelegate = new Autofill.Delegate() {};
     }
     mPrintDelegate = new GeckoViewPrintDelegate();
+
+    if (Build.VERSION.SDK_INT >= 31) {
+      setScrollCaptureHint(View.SCROLL_CAPTURE_HINT_INCLUDE);
+      setScrollCaptureCallback(new ScrollCaptureCallbackImpl());
+    }
   }
 
   /**
@@ -1124,6 +1137,86 @@ public class GeckoView extends FrameLayout implements GeckoDisplay.NewSurfacePro
       } catch (final SecurityException e) {
         Log.e(LOGTAG, "Failed to call AutofillManager.cancel: ", e);
       }
+    }
+  }
+
+  @TargetApi(31)
+  private class ScrollCaptureCallbackImpl implements ScrollCaptureCallback {
+    private Bitmap mFullSnapshot;
+    private Rect mFullSnapshotRect = new Rect();
+    private int mInitialScrollY = 0;
+
+    @Override
+    public void onScrollCaptureSearch(CancellationSignal signal, Consumer<Rect> onReady){
+      Log.d(LOGTAG, "onScrollCaptureSearch: start"); 
+      final Rect rect = new Rect();
+      mSession.getSurfaceBounds(rect);
+      Log.d(LOGTAG, "onScrollCaptureSearch: getSurfaceBounds" + rect);
+
+      // TODO: capture needed ,  not full!
+      mSession.captureFullSnapshot(rect.width()).map(
+         response -> {
+          final String bitmap = response.getString("bitmap");
+          mInitialScrollY = (int) response.getLong("scrollY");
+          final byte[] bitmapBytes = Base64.decode(bitmap, Base64.NO_WRAP);
+          Log.d(LOGTAG, "onScrollCaptureSearch: Base64.decode"); 
+          mFullSnapshot = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.length);
+          Log.d(LOGTAG, "onScrollCaptureSearch: mFullSnapshot" + mFullSnapshot); 
+          mFullSnapshotRect.set(0, 0, mFullSnapshot.getWidth(), mFullSnapshot.getHeight());
+          Log.d(LOGTAG, "onScrollCaptureSearch: rect :" + mFullSnapshotRect); 
+          //onReady.accept(mFullSnapshotRect);
+          
+          onReady.accept(rect);
+      
+          Log.d(LOGTAG, "onScrollCaptureSearch: onReady.accept"); 
+          return response;
+         }
+         // TODO error -> signal cancel
+      );
+      Log.d(LOGTAG, "onScrollCaptureSearch: end"); 
+
+    }
+
+    @Override
+    public void onScrollCaptureStart(ScrollCaptureSession session, CancellationSignal signal, Runnable onReady){
+      Log.d(LOGTAG, "onScrollCaptureStart: start"); 
+      onReady.run();
+      Log.d(LOGTAG, "onScrollCaptureStart: end"); 
+    }
+
+    @Override
+    public void onScrollCaptureImageRequest(ScrollCaptureSession session, CancellationSignal signal, Rect captureArea, Consumer<Rect> onComplete){
+      Log.d(LOGTAG, "onScrollCaptureImageRequest: captureArea :" + captureArea);
+      captureArea.offset(0 , mInitialScrollY);
+      if(!captureArea.intersect(mFullSnapshotRect)){
+        Log.d(LOGTAG, "onScrollCaptureImageRequest: captureArea not intersect");
+        onComplete.accept(new Rect());
+        return;
+      }
+      Rect destRect = new Rect(0, 0, captureArea.width(), captureArea.height());
+      Log.d(LOGTAG, "onScrollCaptureImageRequest: destRect :" + destRect);
+      Surface surface = session.getSurface();
+      Canvas canvas = surface.lockCanvas(destRect);
+      canvas.drawColor(Color.WHITE);
+      //canvas.drawBitmap(mFullSnapshot, captureArea, destRect, null);
+      canvas.drawBitmap(mFullSnapshot, captureArea, destRect, null);
+      surface.unlockCanvasAndPost(canvas);
+      captureArea.offset(0 , - mInitialScrollY);
+      onComplete.accept(captureArea);
+    }
+
+    @Override
+    public void onScrollCaptureEnd(Runnable onReady){
+      Log.d(LOGTAG, "onScrollCaptureEnd: start " );
+      if(mFullSnapshotRect != null){
+        mFullSnapshot.recycle();
+        mFullSnapshot = null;
+      }
+      mFullSnapshotRect.set(0,0,0,0);
+      mInitialScrollY = 0;
+
+      onReady.run();
+      Log.d(LOGTAG, "onScrollCaptureEnd: end " );
     }
   }
 

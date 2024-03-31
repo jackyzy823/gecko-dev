@@ -249,6 +249,24 @@ export class GeckoViewContentChild extends GeckoViewActorChild {
       case "ContainsFormData": {
         return this.containsFormData();
       }
+      case "getFullPageBounds": {
+        let {
+          scrollMinY,
+          scrollMinX,
+        } = this.contentWindow;
+        const x = {};
+        const y = {};        
+        this.contentWindow.windowUtils.getVisualViewportOffset(x, y);
+        let rect = {
+          left: scrollMinX,
+          top: scrollMinY,
+          width: this.contentWindow.document.body.scrollWidth,
+          height: this.contentWindow.document.body.scrollHeight,
+          devicePixelRatio: this.contentWindow.devicePixelRatio,
+          scrollY: y.value,
+        };
+        return rect;
+      }
     }
 
     return null;

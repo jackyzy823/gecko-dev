@@ -1317,6 +1317,14 @@ public class GeckoSession {
     return mEventDispatcher.queryString("GeckoView:GetUserAgent");
   }
 
+
+  @AnyThread
+  public @NonNull GeckoResult<GeckoBundle> captureFullSnapshot(final int width) {
+    final GeckoBundle bundle = new GeckoBundle(1);
+    bundle.putInt("width", width);
+    return mEventDispatcher.queryBundle("GeckoView:CaptureFullSnapshot", bundle);
+  }
+
   /**
    * Get the default user agent for this GeckoView build.
    *

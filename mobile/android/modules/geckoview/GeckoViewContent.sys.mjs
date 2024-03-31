@@ -38,6 +38,7 @@ export class GeckoViewContent extends GeckoViewModule {
       "GeckoView:UpdateInitData",
       "GeckoView:ZoomToInput",
       "GeckoView:IsPdfJs",
+      "GeckoView:CaptureFullSnapshot"
     ]);
   }
 
@@ -172,6 +173,14 @@ export class GeckoViewContent extends GeckoViewModule {
     debug`onEvent: event=${aEvent}, data=${aData}`;
 
     switch (aEvent) {
+      case "GeckoView:CaptureFullSnapshot":
+        this._captureFullSnapshot(aData, aCallback);
+        // const currentActor =
+        // Services.focus.focusedContentBrowsingContext.currentWindowGlobal.getActor(
+        //   "GeckoViewContent"
+        // );
+        // currentActor.sendAsyncMessage(aEvent, aData);
+        break;
       case "GeckoViewContent:ExitFullScreen":
         this.browser.ownerDocument.exitFullscreen();
         break;
@@ -383,6 +392,101 @@ export class GeckoViewContent extends GeckoViewModule {
       }
     }
   }
+
+  async _captureFullSnapshot(aData, aCallback){
+    // let {
+    //   innerHeight,
+    //   innerWidth,
+    //   scrollMinY,
+    //   scrollMinX,
+    // } = this.window;
+    // let clientHeight = innerHeight;
+    // let clientWidth = innerWidth;
+    // let rect = {
+    //   left: scrollMinX,
+    //   top: scrollMinY,
+    //   width: clientWidth,
+    //   height: clientHeight,
+    //   devicePixelRatio: this.window.devicePixelRatio,
+    // };
+
+    // this.browser.browsingContext.topWindowContext
+    // const actor = this.browser.browsingContext.top.getActor("GeckoViewContent");
+    const actor =
+          Services.focus.focusedContentBrowsingContext.currentWindowGlobal.getActor(
+            "GeckoViewContent"
+          );
+    let rect = await actor.sendQuery("getFullPageBounds");
+    let { canvas, snapshot } = await this.createCanvas(rect, this.browser, aData.width);
+
+    // .replace("data:image/png;base64,", "")
+    aCallback.onSuccess({ "bitmap": canvas.toDataURL().replace("data:image/png;base64,", "") , "scrollY": rect.scrollY * aData.width / rect.width});
+
+    snapshot.close();
+    //aCallback.onSuccess(await this.blobToDataUrl(await lazy.PageThumbs.captureToBlob(this.browser, {"fullViewport": true , "fullScale": true})));
+  }
+
+  // When desktop mode width / region.width (2.698) != devicePixelRatio (1.102)
+  // When  mobile mode  width / region.width  == devicePixelRatio
+  async createCanvas(region, browser, width) {
+    this.cropScreenshotRectIfNeeded(region);
+    //let DOMRect = window.DOMRect;
+    let rect = new this.window.DOMRect(
+      region.left,
+      region.top,
+      region.width,
+      region.height
+    );
+    debug`GeckoView: createCanvas: rect=${region}`;
+    debug`GeckoView: createCanvas: DOMRect=${region}`;
+    debug`GeckoView: createCanvas: width=${width} scale = ${width / region.width}`;
+    
+    let { devicePixelRatio } = region;
+    
+    const { browsingContext } = this.actor
+
+    let snapshot = await browsingContext.currentWindowGlobal.drawSnapshot(
+      rect,
+      width / region.width,
+      "rgb(255,255,255)"
+    );
+
+    let canvas = browser.ownerDocument.createElementNS(
+      "http://www.w3.org/1999/xhtml",
+      "html:canvas"
+    );
+    let context = canvas.getContext("2d");
+
+    canvas.width = snapshot.width;
+    canvas.height = snapshot.height;
+
+    context.drawImage(snapshot, 0, 0);
+
+    return { canvas, snapshot };
+  }
+  
+
+  cropScreenshotRectIfNeeded(rect) {
+    const MAX_CAPTURE_DIMENSION = 32767;
+    const MAX_CAPTURE_AREA = 124925329;
+    
+    let width = rect.width * rect.devicePixelRatio;
+    let height = rect.height * rect.devicePixelRatio;
+
+    if (width > MAX_CAPTURE_DIMENSION) {
+      width = MAX_CAPTURE_DIMENSION;
+    }
+    if (height > MAX_CAPTURE_DIMENSION) {
+      height = MAX_CAPTURE_DIMENSION;
+    }
+    if (width * height > MAX_CAPTURE_AREA) {
+      height = Math.floor(MAX_CAPTURE_AREA / width);
+    }
+
+    rect.width = Math.floor(width / rect.devicePixelRatio);
+    rect.height = Math.floor(height / rect.devicePixelRatio);
+  }
+
 
   async _containsFormData(aCallback) {
     aCallback.onSuccess(await this.actor.containsFormData());
