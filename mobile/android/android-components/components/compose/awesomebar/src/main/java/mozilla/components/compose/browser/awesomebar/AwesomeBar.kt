@@ -100,16 +100,20 @@ fun AwesomeBar(
         val fetcher = remember(groups) { SuggestionFetcher(groups, profiler) }
 
         // This state does not need to be remembered, because it can change if the providers list changes.
+        // TODO will this cause memory issue (OOM) ?? if UnrememberedMutableState -> create new instance every time
+        //  https://slackhq.github.io/compose-lints/rules/#state-should-be-remembered-in-composables 
+        
+        //TODO 2) or `val suggestions = derivedStateOf { fetcher.state.value }.value` ??
+        
         @SuppressLint("UnrememberedMutableState")
-        val suggestions = derivedStateOf { fetcher.state.value }.value.toList()
-            .sortedByDescending { it.first.priority }.toMap(LinkedHashMap())
+        val suggestions = derivedStateOf { fetcher.state.value }
 
         LaunchedEffect(text, fetcher) {
             fetcher.fetch(text)
         }
 
         Suggestions(
-            suggestions,
+            suggestions.value.toList().sortedByDescending { it.first.priority }.toMap(LinkedHashMap()),
             colors,
             orientation,
             onSuggestionClicked,
