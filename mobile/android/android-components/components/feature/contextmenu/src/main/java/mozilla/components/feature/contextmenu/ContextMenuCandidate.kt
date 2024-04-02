@@ -15,6 +15,7 @@ import com.google.android.material.snackbar.Snackbar
 import mozilla.components.browser.state.state.SessionState
 import mozilla.components.browser.state.state.content.DownloadState
 import mozilla.components.browser.state.state.content.ShareInternetResourceState
+import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
 import mozilla.components.concept.engine.HitResult
 import mozilla.components.feature.app.links.AppLinksUseCases
 import mozilla.components.feature.contextmenu.ContextMenuCandidate.Companion.MAX_TITLE_LENGTH
@@ -125,6 +126,7 @@ data class ContextMenuCandidate(
                     startLoading = true,
                     parentId = parent.id,
                     contextId = parent.contextId,
+                    flags = LoadUrlFlags.select(LoadUrlFlags.ALLOW_INHERIT_PARENT),
                 )
 
                 snackbarDelegate.show(
@@ -168,6 +170,7 @@ data class ContextMenuCandidate(
                     startLoading = true,
                     parentId = parent.id,
                     private = true,
+                    flags = LoadUrlFlags.select(LoadUrlFlags.ALLOW_INHERIT_PARENT),
                 )
 
                 snackbarDelegate.show(
@@ -323,6 +326,7 @@ data class ContextMenuCandidate(
                     parentId = parent.id,
                     contextId = parent.contextId,
                     private = parent.content.private,
+                    flags = LoadUrlFlags.select(LoadUrlFlags.ALLOW_INHERIT_PARENT),
                 )
 
                 snackbarDelegate.show(

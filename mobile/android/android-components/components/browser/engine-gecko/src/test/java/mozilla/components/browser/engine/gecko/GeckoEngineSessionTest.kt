@@ -597,6 +597,23 @@ class GeckoEngineSessionTest {
 
         engineSession.loadUrl("http://www.mozilla.org", parent = parentEngineSession)
         verify(geckoSession).load(
+            GeckoSession.Loader().uri("http://www.mozilla.org"),
+        )
+
+        engineSession.loadUrl(
+            "http://www.mozilla.org",
+            flags = LoadUrlFlags.select(LoadUrlFlags.ALLOW_INHERIT_PARENT)
+        )
+        verify(geckoSession).load(
+            GeckoSession.Loader().uri("http://www.mozilla.org"),
+        )
+
+        engineSession.loadUrl(
+            "http://www.mozilla.org",
+            parent = parentEngineSession,
+            flags = LoadUrlFlags.select(LoadUrlFlags.ALLOW_INHERIT_PARENT)
+        )
+        verify(geckoSession).load(
             GeckoSession.Loader().uri("http://www.mozilla.org").referrer(parentEngineSession.geckoSession),
         )
 
@@ -676,6 +693,7 @@ class GeckoEngineSessionTest {
         assertTrue(flags.contains(LoadUrlFlags.LOAD_FLAGS_BYPASS_LOAD_URI_DELEGATE))
         assertFalse(flags.contains(LoadUrlFlags.ALLOW_ADDITIONAL_HEADERS))
         assertFalse(flags.contains(LoadUrlFlags.ALLOW_JAVASCRIPT_URL))
+        assertFalse(flags.contains(LoadUrlFlags.ALLOW_INHERIT_PARENT))
     }
 
     @Test

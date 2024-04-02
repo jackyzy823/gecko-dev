@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.mapNotNull
 import mozilla.components.browser.state.action.ContentAction
 import mozilla.components.browser.state.store.BrowserStore
+import mozilla.components.concept.engine.EngineSession.LoadUrlFlags
 import mozilla.components.concept.engine.window.WindowRequest
 import mozilla.components.lib.state.ext.flowScoped
 import mozilla.components.support.base.feature.LifecycleAwareFeature
@@ -49,6 +50,7 @@ class WindowFeature(
                                 parentId = state.id,
                                 engineSession = windowRequest.prepare(),
                                 private = state.content.private,
+                                flags = LoadUrlFlags.select(LoadUrlFlags.ALLOW_INHERIT_PARENT),
                             )
                             windowRequest.start()
                         }
