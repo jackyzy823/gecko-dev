@@ -79,10 +79,23 @@ fun TabTools(
         totalTabCount = totalTabCount,
         inactiveTabsEnabled = inactiveTabsEnabled,
         onCreateTabsClick = { quantity, isInactive, isPrivate ->
+            // Add mutiple tabs by subdivision to prevent OutOfMemoryError
+            // caused by generating a huge tab list in one shot.
+            repeat(quantity / TABS_ADD_PER_STEP) {
+                store.dispatch(
+                    TabListAction.AddMultipleTabsAction(
+                        tabs = generateTabList(
+                            quantity = TABS_ADD_PER_STEP,
+                            isInactive = isInactive,
+                            isPrivate = isPrivate,
+                        ),
+                    ),
+                )
+            }
             store.dispatch(
                 TabListAction.AddMultipleTabsAction(
                     tabs = generateTabList(
-                        quantity = quantity,
+                        quantity = quantity % TABS_ADD_PER_STEP,
                         isInactive = isInactive,
                         isPrivate = isPrivate,
                     ),
@@ -207,6 +220,7 @@ private fun TabCountRow(
 }
 
 private const val DEFAULT_TABS_TO_ADD = 1
+private const val TABS_ADD_PER_STEP = 100
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
