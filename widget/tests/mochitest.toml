@@ -42,6 +42,12 @@ run-if = [
 ]
 skip-if = ["headless"] # headless widget doesn't dispatch contextmenu event by mouse event.
 
+["test_dblclick.html"]
+run-if = [
+  "os == 'android'",
+]
+skip-if = ["headless"]
+
 ["test_keypress_event_with_alt_on_mac.html"]
 run-if = ["os == 'mac'"]
 

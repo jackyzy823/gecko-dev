@@ -203,6 +203,17 @@ class NPZCSupport final
   RefPtr<AndroidVsync> mAndroidVsync;
   TouchResampler mTouchResampler;
   int mPreviousButtons = 0;
+
+  int64_t mLastMouseDownTime = 0;
+  ScreenPoint mLastMousePoint = ScreenPoint(0, 0);
+  int mLastClickCount = 0;
+  MouseInput::ButtonType mLastButtonType = MouseInput::NONE;
+
+  // static POINT sLastMousePoint = {0};
+  // static LONG sLastMouseDownTime = 0L;
+  // static LONG sLastClickCount = 0L;
+  // static BYTE sLastMouseButton = 0;
+
   bool mListeningToVsync = false;
 
   // Only true if mAndroidVsync is non-null and the resampling pref is set.
@@ -544,6 +555,41 @@ class NPZCSupport final
   }
 
  public:
+  // TODO handling double click
+
+  // https://searchfox.org/mozilla-central/rev/624107ac3ba02d3de1a58c6966b0e364053b32b5/dom/events/EventStateManager.cpp#5779
+
+  // Windows use
+  // https://searchfox.org/mozilla-central/rev/624107ac3ba02d3de1a58c6966b0e364053b32b5/widget/windows/nsWindow.cpp#4320-4325,4343
+  // GetDoubleClickTime is a win32 api
+
+  // windows eMouseDoubleClick??
+
+  // Linux use
+  // https://searchfox.org/mozilla-central/rev/624107ac3ba02d3de1a58c6966b0e364053b32b5/widget/gtk/nsWindow.cpp#4605-4616
+
+  // Android?
+  //  https://stackoverflow.com/questions/9971224/how-to-implement-double-click-in-android
+  //  https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/core/java/android/view/GestureDetector.java;drc=3d19fbcc09b1b44928639b06cd0b88f735cd988d;l=614
+  //   isConsideredDoubleTap based on
+  //     private static final int DOUBLE_TAP_TIMEOUT =
+  //     ViewConfiguration.getDoubleTapTimeout(); private static final int
+  //     DOUBLE_TAP_MIN_TIME = ViewConfiguration.getDoubleTapMinTime();
+  //  getDoubleTapMinTime is not exposed
+  //  and DoubleTap equals Dobule Click ????
+
+  // delta ->  mDoubleTapSlopSquare = doubleTapSlop * doubleTapSlop;
+  //  ViewConfiguration.getTouchSlop();
+  //  configuration.getScaledDoubleTapTouchSlop();
+
+  // Add tests
+  // 1. geckoview-junit: When double click on text , SelectionDelegate show
+  // selection....
+  // 2. mochitest: When double click , dblclick event trigger
+  //     NOTE ensure seq!
+  //     down/up/click/down/up/click/dblclick/down/up/click/down/up/click/dblclick
+
+  // TODO 2 -> Ctrl + wheel scrolling ---> ZOOM ?
   int32_t HandleMouseEvent(int32_t aAction, int64_t aTime, int32_t aMetaState,
                            float aX, float aY, int buttons) {
     MOZ_ASSERT(AndroidBridge::IsJavaUiThread());
@@ -561,21 +607,67 @@ class NPZCSupport final
       return INPUT_RESULT_UNHANDLED;
     }
 
+    // 8dp from config_viewConfigurationTouchSlop
+    // How ? a fixed pixel value , or convert dp to pixel?
+    // pixel = dp * nsWindow::GetDpi() / 160
+
+    // Chromium use a fixed value
+    // https://source.chromium.org/chromium/chromium/src/+/main:ui/events/event.cc;drc=e686c80feb21c29957282a8a4505a86b4feaca1f;bpv=1;bpt=1;l=500?gsn=kDoubleClickWidth&gs=KYTHE%3A%2F%2FKqYCCpABa3l0aGU6Ly9jaHJvbWl1bS5nb29nbGVzb3VyY2UuY29tL2NvZGVzZWFyY2gvY2hyb21pdW0vc3JjLy9tYWluP2xhbmc9YyUyQiUyQj9wYXRoPXVpL2V2ZW50cy9ldmVudC5jYyNFeUlseTlQUk50UnFVQTV0Q2lKUTlTVGFoLVducjc0NFVfSGJ5SHRvbTRJCpABa3l0aGU6Ly9jaHJvbWl1bS5nb29nbGVzb3VyY2UuY29tL2NvZGVzZWFyY2gvY2hyb21pdW0vc3JjLy9tYWluP2xhbmc9YyUyQiUyQj9wYXRoPXVpL2V2ZW50cy9ldmVudC5jYyNVZWYzbVBYRmNkaWNiNjhnME13V0w1dHpqZEJoT2U5MW5wdkpqc3dQS1pz
+    bool insideMovementThreshold = mozilla::Abs(mLastMousePoint.x - aX) < 128 &&
+                                   mozilla::Abs(mLastMousePoint.y - aY) < 128;
+
     MouseInput::MouseType mouseType = MouseInput::MOUSE_NONE;
     MouseInput::ButtonType buttonType = MouseInput::NONE;
     switch (aAction) {
       case java::sdk::MotionEvent::ACTION_DOWN:
         mouseType = MouseInput::MOUSE_DOWN;
         buttonType = GetButtonType(buttons ^ mPreviousButtons);
+        // Note: currently is wrong
+        // Right click,click, dblclick, click,click,dblclick
+        // Now: click,click,dblclick,click,dblclick
+
+        // TODO  DOUBLE_TAP_TIMEOUT  -> 300
+        // However Android consider SECOND_DOWNEVENT - FIRST_UPEVENT as the duration
+        // But we current only consider two DOWNEVENT as the duration, this maybe different 
+        // If a user press and hold for a long time then quickly release then press?
+
+        // TODO chromium use a fixed value 500 in whatever platform
+        // https://source.chromium.org/chromium/chromium/src/+/main:ui/events/event.cc?q=symbol%3A%5Cbui%3A%3AIsRepeatedClickTimes%5Cb%20case%3Ayes
+        if ((aTime - mLastMouseDownTime) < 300 && insideMovementThreshold &&
+            mLastButtonType == buttonType) {
+          // It will become 3,4,5,6,....... quickly if you click quickly
+          // So how to reset to 0/1 ? -> then 2 for smoothly trigger dblclick
+          // again
+
+          // we skip odd number and set even number to 2 to trigger dblclick
+          // order correctly.
+          mLastClickCount++;
+          if (mLastClickCount % 2 == 0) {
+            mLastClickCount = 2;
+          }
+        } else {
+          mLastClickCount = 1;
+        }
+        mLastMouseDownTime = aTime;
+
         mPreviousButtons = buttons;
+
         break;
       case java::sdk::MotionEvent::ACTION_UP:
         mouseType = MouseInput::MOUSE_UP;
         buttonType = GetButtonType(buttons ^ mPreviousButtons);
         mPreviousButtons = buttons;
+
+        mLastMousePoint.x = aX;
+        mLastMousePoint.y = aY;
+        mLastButtonType = buttonType;
+
         break;
       case java::sdk::MotionEvent::ACTION_MOVE:
         mouseType = MouseInput::MOUSE_MOVE;
+        if (!insideMovementThreshold) {
+          mLastClickCount = 0;
+        }
         break;
       case java::sdk::MotionEvent::ACTION_HOVER_MOVE:
         mouseType = MouseInput::MOUSE_MOVE;
@@ -606,9 +698,15 @@ class NPZCSupport final
       return INPUT_RESULT_IGNORED;
     }
 
-    PostInputEvent([input = std::move(input), result](nsWindow* window) {
+    PostInputEvent([input = std::move(input), result,
+                    mLastClickCount = this->mLastClickCount](nsWindow* window) {
       WidgetMouseEvent mouseEvent = input.ToWidgetEvent(window);
+      mouseEvent.mClickCount = mLastClickCount;
+
       window->ProcessUntransformedAPZEvent(&mouseEvent, result);
+
+      // dblclick won't fire on non-primary buttons. so it's ok to not check
+      // mLastClickCount here
       if (MouseInput::SECONDARY_BUTTON == input.mButtonType) {
         if ((StaticPrefs::ui_context_menus_after_mouseup() &&
              MouseInput::MOUSE_UP == input.mType) ||

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Test to fire dblclick event by widget level</title>
+<script src="/tests/SimpleTest/EventUtils.js"></script>
+<script src="/tests/SimpleTest/SimpleTest.js"></script>
+<script src="/tests/SimpleTest/SpecialPowers.js"></script>
+<link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css">
+<style>
+#target {
+  width: 100px;
+  height: 100px;
+  background-color: blue;
+}
+</style>
+<script>
+"use strict";
+// Test 1. timeout?
+// Test 2. move thresold?
+// Test 4. non-primary button
+const CORRECT_SEQ = ["mousedown", "mouseup", "click", "mousedown", "mouseup", "click", "dblclick", "mousedown", "mouseup", "click", "mousedown", "mouseup", "click", "dblclick"].toString();
+
+add_task(async function test_fire_dblclick() {
+  await SimpleTest.promiseFocus();
+  await process_dblclick_event({ preventEvent: false });
+  await process_dblclick_event({ preventEvent: true });
+});
+
+async function process_dblclick_event({ preventEvent }) {
+  await SpecialPowers.contentTransformsReceived(window);
+
+  const target = document.getElementById("target");
+
+  let seq = [];
+  let count = 0;
+
+  const promise = new Promise(resolve => {
+    target.addEventListener("mousedown", e => {
+      seq.push("mousedown");
+      if (preventEvent) {
+        e.preventDefault();
+      }
+    });
+
+    target.addEventListener("mouseup", e => {
+      seq.push("mouseup");
+      if (preventEvent) {
+        e.preventDefault();
+      }
+    });
+
+    target.addEventListener("click", e => {
+      seq.push("click");
+      if (preventEvent) {
+        e.preventDefault();
+      }
+    });
+
+    target.addEventListener("dblclick", e => {
+      seq.push("dblclick");
+      if (preventEvent) {
+        e.preventDefault();
+      }
+
+      count++;
+      if (count == 2) {
+        resolve();
+      }
+    });
+  });
+
+
+  await promiseNativeMouseEvent({
+    type: "click",
+    target,
+    offsetX: 10,
+    offsetY: 10,
+  });
+
+  await promiseNativeMouseEvent({
+    type: "click",
+    target,
+    offsetX: 10,
+    offsetY: 10,
+  });
+
+  // double click again
+  await promiseNativeMouseEvent({
+    type: "click",
+    target,
+    offsetX: 10,
+    offsetY: 10,
+  });
+
+  await promiseNativeMouseEvent({
+    type: "click",
+    target,
+    offsetX: 10,
+    offsetY: 10,
+  });
+
+  await promise;
+  is(seq.toString(), CORRECT_SEQ, "double click events sequence matches");
+}
+
+</script>
+</head>
+<body>
+<div id="target"></div>
+</body>
+</html>
