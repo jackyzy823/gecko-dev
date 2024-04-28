@@ -262,7 +262,13 @@ nsLocalFile::nsLocalFile(const nsACString& aFilePath) : mCachedStat() {
   InitWithNativePath(aFilePath);
 }
 
-nsLocalFile::nsLocalFile(const nsLocalFile& aOther) : mPath(aOther.mPath) {}
+nsLocalFile::nsLocalFile(const nsLocalFile& aOther)
+    :
+#ifdef ANDROID
+      mIsContentUri(aOther.mIsContentUri),
+#endif
+      mPath(aOther.mPath) {
+}
 
 #ifdef MOZ_WIDGET_COCOA
 NS_IMPL_ISUPPORTS(nsLocalFile, nsILocalFileMac, nsIFile)
@@ -289,17 +295,14 @@ bool nsLocalFile::FillStatCache() {
   }
 
 #ifdef ANDROID
-  if (StringBeginsWith(mPath, "content://"_ns)) {
+  if (mIsContentUri) {
     int fd = java::GeckoAppShell::OpenContentFile(mPath);
-    if (fd < 0) {
+    if (fd == -1) {
       return false;
     }
-    if (FSTAT(fd, &mCachedStat) == -1) {
-      close(fd);
-      return false;
-    }
+    bool result = (FSTAT(fd, &mCachedStat) != -1);
     close(fd);
-    return true;
+    return result;
   }
 #endif
 
@@ -353,15 +356,12 @@ nsLocalFile::InitWithNativePath(const nsACString& aFilePath) {
           + Substring(aFilePath, 1);
     }
   } else {
-    if (aFilePath.IsEmpty() ||
 #ifdef ANDROID
-        (
+    if (StringBeginsWith(aFilePath, "content://"_ns)) {
+      mIsContentUri = true;
+    } else
 #endif
-            aFilePath.First() != '/'
-#ifdef ANDROID
-            && !StringBeginsWith(aFilePath, "content://"_ns))
-#endif
-    ) {
+        if (aFilePath.IsEmpty() || aFilePath.First() != '/') {
       return NS_ERROR_FILE_UNRECOGNIZED_PATH;
     }
     mPath = aFilePath;
@@ -462,7 +462,7 @@ nsLocalFile::OpenNSPRFileDesc(int32_t aFlags, int32_t aMode,
     return NS_ERROR_FILE_ACCESS_DENIED;
   }
 #ifdef ANDROID
-  if (StringBeginsWith(mPath, "content://"_ns)) {
+  if (mIsContentUri) {
     int fd = java::GeckoAppShell::OpenContentFile(mPath);
     if (fd == -1) {
       // TODO NS_ERROR_FILE_NOT_FOUND or NS_ERROR_FILE_INVALID_HANDLE?
@@ -503,7 +503,7 @@ nsLocalFile::OpenANSIFileDesc(const char* aMode, FILE** aResult) {
   }
 
 #ifdef ANDROID
-  if (StringBeginsWith(mPath, "content://"_ns)) {
+  if (mIsContentUri) {
     return NS_ERROR_NOT_IMPLEMENTED;
   } else {
 #endif
@@ -705,7 +705,7 @@ NS_IMETHODIMP
 nsLocalFile::GetNativeLeafName(nsACString& aLeafName) {
 #ifdef ANDROID
   // TODO webkitRelativePath is undefined <- it should be undefined!
-  if (StringBeginsWith(mPath, "content://"_ns)) {
+  if (mIsContentUri) {
     auto fileName = java::GeckoAppShell::GetContentFileName(mPath);
     if (fileName && fileName->Length() > 0) {
       aLeafName = fileName->ToCString();
@@ -1253,16 +1253,16 @@ nsresult nsLocalFile::GetTimeImpl(PRTime* aTime,
 
   struct STAT fileStats {};
 #ifdef ANDROID
-  if (StringBeginsWith(mPath, "content://"_ns)) {
+  if (mIsContentUri) {
     int fd = java::GeckoAppShell::OpenContentFile(mPath);
-    if (fd < 0) {
+    if (fd == -1) {
       return NS_ERROR_FAILURE;
     }
-    if (FSTAT(fd, &fileStats) == -1) {
-      close(fd);
+    bool success = (FSTAT(fd, &fileStats) != -1);
+    close(fd);
+    if (!success) {
       return NSRESULT_FOR_ERRNO();
     }
-    close(fd);
   } else
 #endif
 
@@ -1807,16 +1807,14 @@ nsLocalFile::Exists(bool* aResult) {
   }
 
 #ifdef ANDROID
-  // ALWAYS EXISTS for content://
-  // Is this right??
-  if (StringBeginsWith(mPath, "content://"_ns)) {
-    // int fd = java::GeckoAppShell::OpenContentFile(mPath);
-    // if (fd < 0) {
-    //   *aResult = false;
-    //   return NS_OK; // or? NS_ERROR_FILE_NOT_FOUND
-    // }
-    // close(fd);
-    *aResult = true;
+  if (mIsContentUri) {
+    int fd = java::GeckoAppShell::OpenContentFile(mPath);
+    if (fd == -1) {
+      *aResult = false;
+    } else {
+      close(fd);
+      *aResult = true;
+    }
     return NS_OK;
   }
 #endif

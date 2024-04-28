@@ -67,6 +67,10 @@ class nsLocalFile final
   nsLocalFile(const nsLocalFile& aOther);
   ~nsLocalFile() = default;
 
+#ifdef ANDROID
+  bool mIsContentUri = false;
+#endif
+
  protected:
   // This stat cache holds the *last stat* - it does not invalidate.
   // Call "FillStatCache" whenever you want to stat our file.
