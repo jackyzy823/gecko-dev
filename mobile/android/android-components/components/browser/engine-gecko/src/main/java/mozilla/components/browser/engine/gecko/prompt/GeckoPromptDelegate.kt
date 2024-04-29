@@ -16,7 +16,6 @@ import mozilla.components.browser.engine.gecko.ext.toCreditCardEntry
 import mozilla.components.browser.engine.gecko.ext.toLoginEntry
 import mozilla.components.concept.engine.prompt.Choice
 import mozilla.components.concept.engine.prompt.PromptRequest
-import mozilla.components.concept.engine.prompt.PromptRequest.File.Companion.DEFAULT_UPLOADS_DIR_NAME
 import mozilla.components.concept.engine.prompt.PromptRequest.MenuChoice
 import mozilla.components.concept.engine.prompt.PromptRequest.MultipleChoice
 import mozilla.components.concept.engine.prompt.PromptRequest.SingleChoice
@@ -27,7 +26,6 @@ import mozilla.components.concept.storage.Address
 import mozilla.components.concept.storage.CreditCardEntry
 import mozilla.components.concept.storage.Login
 import mozilla.components.concept.storage.LoginEntry
-import mozilla.components.support.ktx.android.net.toFileUri
 import mozilla.components.support.ktx.kotlin.toDate
 import mozilla.components.support.utils.TimePicker.shouldShowMillisecondsPicker
 import mozilla.components.support.utils.TimePicker.shouldShowSecondsPicker
@@ -456,17 +454,14 @@ internal class GeckoPromptDelegate(private val geckoEngineSession: GeckoEngineSe
         }
 
         val onSelectMultiple: (Context, Array<Uri>) -> Unit = { context, uris ->
-            val filesUris = uris.map {
-                toFileUri(uri = it, context)
-            }.toTypedArray()
             if (!prompt.isComplete) {
-                geckoResult.complete(prompt.confirm(context, filesUris))
+                geckoResult.complete(prompt.confirm(context, uris))
             }
         }
 
         val onSelectSingle: (Context, Uri) -> Unit = { context, uri ->
             if (!prompt.isComplete) {
-                geckoResult.complete(prompt.confirm(context, toFileUri(uri, context)))
+                geckoResult.complete(prompt.confirm(context, uri))
             }
         }
 
@@ -866,11 +861,6 @@ internal class GeckoPromptDelegate(private val geckoEngineSession: GeckoEngineSe
 
     private operator fun Int.contains(mask: Int): Boolean {
         return (this and mask) != 0
-    }
-
-    @VisibleForTesting
-    internal fun toFileUri(uri: Uri, context: Context): Uri {
-        return uri.toFileUri(context, dirToCopy = DEFAULT_UPLOADS_DIR_NAME)
     }
 }
 
