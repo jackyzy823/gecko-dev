@@ -262,7 +262,13 @@ nsLocalFile::nsLocalFile(const nsACString& aFilePath) : mCachedStat() {
   InitWithNativePath(aFilePath);
 }
 
-nsLocalFile::nsLocalFile(const nsLocalFile& aOther) : mPath(aOther.mPath) {}
+nsLocalFile::nsLocalFile(const nsLocalFile& aOther)
+    :
+#ifdef ANDROID
+      mIsContentUri(aOther.mIsContentUri),
+#endif
+      mPath(aOther.mPath) {
+}
 
 #ifdef MOZ_WIDGET_COCOA
 NS_IMPL_ISUPPORTS(nsLocalFile, nsILocalFileMac, nsIFile)
@@ -287,6 +293,18 @@ bool nsLocalFile::FillStatCache() {
     errno = EACCES;
     return false;
   }
+
+#ifdef ANDROID
+  if (mIsContentUri) {
+    int fd = java::GeckoAppShell::OpenContentFile(mPath);
+    if (fd == -1) {
+      return false;
+    }
+    bool result = (FSTAT(fd, &mCachedStat) != -1);
+    close(fd);
+    return result;
+  }
+#endif
 
   if (STAT(mPath.get(), &mCachedStat) == -1) {
     // try lstat it may be a symlink
@@ -338,7 +356,12 @@ nsLocalFile::InitWithNativePath(const nsACString& aFilePath) {
           + Substring(aFilePath, 1);
     }
   } else {
-    if (aFilePath.IsEmpty() || aFilePath.First() != '/') {
+#ifdef ANDROID
+    if (StringBeginsWith(aFilePath, "content://"_ns)) {
+      mIsContentUri = true;
+    } else
+#endif
+        if (aFilePath.IsEmpty() || aFilePath.First() != '/') {
       return NS_ERROR_FILE_UNRECOGNIZED_PATH;
     }
     mPath = aFilePath;
@@ -438,7 +461,24 @@ nsLocalFile::OpenNSPRFileDesc(int32_t aFlags, int32_t aMode,
   if (!FilePreferences::IsAllowedPath(mPath)) {
     return NS_ERROR_FILE_ACCESS_DENIED;
   }
-  *aResult = PR_Open(mPath.get(), aFlags, aMode);
+#ifdef ANDROID
+  if (mIsContentUri) {
+    // `aMode` is ignored. The fd is always opened read-only because it is only
+    // used by DOM File API / FilePicker.
+    int fd = java::GeckoAppShell::OpenContentFile(mPath);
+    if (fd == -1) {
+      return NS_ERROR_FAILURE;
+    }
+
+    // Create a PRFileDesc object from the raw fd.
+    *aResult = PR_ImportFile(PROsfd(fd));
+  } else {
+#endif
+    *aResult = PR_Open(mPath.get(), aFlags, aMode);
+#ifdef ANDROID
+  }
+#endif
+
   if (!*aResult) {
     return NS_ErrorAccordingToNSPR();
   }
@@ -461,6 +501,13 @@ nsLocalFile::OpenANSIFileDesc(const char* aMode, FILE** aResult) {
   if (!FilePreferences::IsAllowedPath(mPath)) {
     return NS_ERROR_FILE_ACCESS_DENIED;
   }
+
+#ifdef ANDROID
+  if (mIsContentUri) {
+    return NS_ERROR_NOT_IMPLEMENTED;
+  }
+#endif
+
   *aResult = fopen(mPath.get(), aMode);
   if (!*aResult) {
     return NS_ERROR_FAILURE;
@@ -654,6 +701,15 @@ void nsLocalFile::LocateNativeLeafName(nsACString::const_iterator& aBegin,
 
 NS_IMETHODIMP
 nsLocalFile::GetNativeLeafName(nsACString& aLeafName) {
+#ifdef ANDROID
+  if (mIsContentUri) {
+    auto fileName = java::GeckoAppShell::GetContentFileName(mPath);
+    if (fileName && fileName->Length() > 0) {
+      aLeafName = fileName->ToCString();
+      return NS_OK;
+    }
+  }
+#endif
   nsACString::const_iterator begin, end;
   LocateNativeLeafName(begin, end);
   aLeafName = Substring(begin, end);
@@ -1193,7 +1249,21 @@ nsresult nsLocalFile::GetTimeImpl(PRTime* aTime,
   StatFn statFn = aFollowLinks ? &STAT : &LSTAT;
 
   struct STAT fileStats {};
-  if (statFn(mPath.get(), &fileStats) < 0) {
+#ifdef ANDROID
+  if (mIsContentUri) {
+    int fd = java::GeckoAppShell::OpenContentFile(mPath);
+    if (fd == -1) {
+      return NS_ERROR_FAILURE;
+    }
+    bool success = (FSTAT(fd, &fileStats) != -1);
+    close(fd);
+    if (!success) {
+      return NSRESULT_FOR_ERRNO();
+    }
+  } else
+#endif
+
+      if (statFn(mPath.get(), &fileStats) < 0) {
     return NSRESULT_FOR_ERRNO();
   }
 
@@ -1731,6 +1801,19 @@ nsLocalFile::Exists(bool* aResult) {
   if (NS_WARN_IF(!aResult)) {
     return NS_ERROR_INVALID_ARG;
   }
+
+#ifdef ANDROID
+  if (mIsContentUri) {
+    int fd = java::GeckoAppShell::OpenContentFile(mPath);
+    if (fd == -1) {
+      *aResult = false;
+    } else {
+      close(fd);
+      *aResult = true;
+    }
+    return NS_OK;
+  }
+#endif
 
   *aResult = (access(mPath.get(), F_OK) == 0);
   return NS_OK;

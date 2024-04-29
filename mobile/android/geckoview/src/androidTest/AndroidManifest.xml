@@ -46,5 +46,10 @@
                   android:grantUriPermissions="true"
                   android:exported="false">
         </provider>
+        <provider android:name="org.mozilla.geckoview.test.FileContentProvider"
+                  android:authorities="org.mozilla.geckoview.test.file"
+                  android:grantUriPermissions="true"
+                  android:exported="false">
+        </provider>
     </application>
 </manifest>

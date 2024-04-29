@@ -9,6 +9,7 @@ import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.ActivityManager;
 import android.app.Service;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -17,6 +18,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.TypedArray;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.PixelFormat;
@@ -38,13 +40,16 @@ import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Debug;
 import android.os.LocaleList;
 import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.os.PowerManager;
 import android.os.Vibrator;
+import android.provider.OpenableColumns;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.ContextThemeWrapper;
@@ -320,6 +325,49 @@ public class GeckoAppShell {
       lastKnownLocation = determineReliableLocation(lastKnownLocation, location);
     }
     return lastKnownLocation;
+  }
+
+  // Return a read-only file descriptor of the ContentUri or -1 if failed.
+  // The caller is responsible for close the file descriptor.
+  @WrapForJNI(calledFrom = "any")
+  private static synchronized int openContentFile(final String path) {
+    try {
+      final Uri uri = Uri.parse(path);
+      final ContentResolver cr = getApplicationContext().getContentResolver();
+      final ParcelFileDescriptor pFD = cr.openFileDescriptor(uri, "r");
+
+      final int fd = pFD.detachFd();
+      return fd;
+    } catch (final Exception e) {
+      Log.e(LOGTAG, "Open file descriptor of the ContentUri failed", e);
+      return -1;
+    }
+  }
+
+  // Return the display name of the ContentUri or null if failed
+  @WrapForJNI(calledFrom = "any")
+  private static synchronized String getContentFileName(final String path) {
+    final String[] projection = {OpenableColumns.DISPLAY_NAME};
+    String filename = null;
+    try {
+      final Uri uri = Uri.parse(path);
+      final ContentResolver cr = getApplicationContext().getContentResolver();
+      final Cursor cursor = cr.query(uri, projection, null, null, null);
+
+      if (cursor != null) {
+        try {
+          if (cursor.moveToFirst()) {
+            filename = cursor.getString(0);
+          }
+        } finally {
+          cursor.close();
+        }
+      }
+    } catch (final Exception e) {
+      Log.e(LOGTAG, "Query display name of ContentUri Failed", e);
+    }
+
+    return filename;
   }
 
   // Toggles the location listeners on/off, which will then provide/stop location information
