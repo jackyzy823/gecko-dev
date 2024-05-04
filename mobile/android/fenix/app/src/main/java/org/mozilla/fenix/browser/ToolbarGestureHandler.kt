@@ -43,6 +43,8 @@ import androidx.navigation.NavController
 import org.mozilla.fenix.tabstray.Page
 import org.mozilla.fenix.ext.nav
 
+import org.mozilla.fenix.browser.BrowserFragmentDirections
+
 /**
  * Handles intercepting touch events on the toolbar for swipe gestures and executes the
  * necessary animations.
@@ -196,6 +198,19 @@ class ToolbarGestureHandler(
                     ),
                 )
             }
+        } else if (destination is Destination.None && isGestureComplete(velocityX)) {
+            val isLtr = activity.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_LTR
+            val cond1 = gestureDirection == GestureDirection.RIGHT_TO_LEFT && isLtr
+            val cond2 = gestureDirection == GestureDirection.LEFT_TO_RIGHT && !isLtr
+            if (cond1 || cond2){
+                // open a new tab
+                navController.navigate(
+                    BrowserFragmentDirections.actionGlobalHome(focusOnAddressBar = true),
+                )
+            } else {
+                animateCanceledGesture(velocityX)
+            }
+        
         } else {
             animateCanceledGesture(velocityX)
         }
