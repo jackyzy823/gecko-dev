@@ -25,6 +25,7 @@ import android.os.Build;
 import android.os.IInterface;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Base64;
@@ -50,6 +51,9 @@ import java.io.InputStream;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -6331,6 +6335,21 @@ public class GeckoSession {
         return super.confirm();
       }
 
+      private static String contentToPath(final @NonNull ContentResolver cr, final @NonNull Uri uri ) {
+        try{
+          final ParcelFileDescriptor pfd = cr.openFileDescriptor(uri, "r");
+          final int fd = pfd.detachFd(); // Is this still opened??? // how to close it
+          final Path fdPath = Paths.get("/proc/self/fd/" + fd);
+          final Path filePath = Files.readSymbolicLink(fdPath);
+          Log.d(LOGTAG, String.format("contentToPath: %s %s -> %s", uri.toString(), fdPath.toString(), filePath.toString()));
+          return String.format("/proc/self/fd/%d", fd);
+        } catch(final Exception e) {
+          Log.d(LOGTAG, "contentToPath: error", e);
+          return null;
+        }
+      }
+
+      // Return file path of ContentUri if query _data successfully or ContentUri itself if failed.
       private static String getFile(final @NonNull Context context, final @NonNull Uri uri) {
         if (uri == null) {
           return null;
@@ -6347,12 +6366,12 @@ public class GeckoSession {
                 /* args */ null, /* sort */
                 null);
         if (cur == null) {
-          return null;
+          return contentToPath(cr, uri);
         }
         try {
           final int idx = cur.getColumnIndex("_data");
           if (idx < 0 || !cur.moveToFirst()) {
-            return null;
+            return contentToPath(cr, uri);
           }
           do {
             try {
@@ -6366,7 +6385,7 @@ public class GeckoSession {
         } finally {
           cur.close();
         }
-        return null;
+        return contentToPath(cr, uri);
       }
     }
 

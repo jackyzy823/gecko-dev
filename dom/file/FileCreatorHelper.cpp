@@ -68,4 +68,41 @@ already_AddRefed<Promise> FileCreatorHelper::CreateFile(
   return promise.forget();
 }
 
+#ifdef ANDROID
+/* static */
+already_AddRefed<Promise> FileCreatorHelper::CreateFileFromContentSchemePath(
+    nsIGlobalObject* aGlobalObject, const nsAString& aContentSchemePath,
+    const ChromeFilePropertyBag& aBag, ErrorResult& aRv) {
+  MOZ_DIAGNOSTIC_ASSERT(NS_IsMainThread());
+
+  RefPtr<Promise> promise = Promise::Create(aGlobalObject, aRv);
+  if (NS_WARN_IF(aRv.Failed())) {
+    return nullptr;
+  }
+
+  // Register this component to PBackground.
+  mozilla::ipc::PBackgroundChild* actorChild =
+      mozilla::ipc::BackgroundChild::GetOrCreateForCurrentThread();
+  if (NS_WARN_IF(!actorChild)) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  Maybe<int64_t> lastModified;
+  if (aBag.mLastModified.WasPassed()) {
+    lastModified.emplace(aBag.mLastModified.Value());
+  }
+
+  PFileCreatorChild* actor = actorChild->SendPFileCreatorConstructor(
+      aContentSchemePath, aBag.mType, aBag.mName, lastModified,
+      aBag.mExistenceCheck, false);
+  if (!actor) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  static_cast<FileCreatorChild*>(actor)->SetPromise(promise);
+  return promise.forget();
+}
+#endif
 }  // namespace mozilla::dom

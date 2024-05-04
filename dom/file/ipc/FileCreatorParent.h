@@ -31,6 +31,7 @@ class FileCreatorParent final : public mozilla::dom::PFileCreatorParent {
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
 
+  nsresult CreateContentSchemeBlobImpl(const nsAString& aPath, BlobImpl** aBlobImpl);
   nsresult CreateBlobImpl(const nsAString& aPath, const nsAString& aType,
                           const nsAString& aName, bool aLastModifiedPassed,
                           int64_t aLastModified, bool aExistenceCheck,

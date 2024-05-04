@@ -180,6 +180,23 @@ already_AddRefed<Promise> File::CreateFromFileName(
     const GlobalObject& aGlobal, const nsAString& aPath,
     const ChromeFilePropertyBag& aBag, SystemCallerGuarantee aGuarantee,
     ErrorResult& aRv) {
+#ifdef ANDROID
+  if (StringBeginsWith(NS_ConvertUTF16toUTF8(aPath), "content://"_ns)) {
+    nsCOMPtr<nsIGlobalObject> global =
+        do_QueryInterface(aGlobal.GetAsSupports());
+
+    MOZ_ASSERT(global);
+    if (NS_WARN_IF(!global)) {
+      aRv.Throw(NS_ERROR_FAILURE);
+      return nullptr;
+    }
+
+    RefPtr<Promise> promise =
+        FileCreatorHelper::CreateFileFromContentSchemePath(global, aPath, aBag,
+                                                           aRv);
+    return promise.forget();
+  }
+#endif
   nsCOMPtr<nsIFile> file;
   aRv = NS_NewLocalFile(aPath, false, getter_AddRefs(file));
   if (NS_WARN_IF(aRv.Failed())) {
@@ -200,3 +217,5 @@ already_AddRefed<Promise> File::CreateFromFileName(
 }
 
 }  // namespace mozilla::dom
+
+// TODO CreateFromInputStream ? CreateFromAFd?

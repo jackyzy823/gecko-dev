@@ -35,6 +35,11 @@ class FileCreatorHelper final {
                                               const ChromeFilePropertyBag& aBag,
                                               bool aIsFromNsIFile,
                                               ErrorResult& aRv);
+#ifdef ANDROID
+  static already_AddRefed<Promise> CreateFileFromContentSchemePath(
+      nsIGlobalObject* aGlobalObject, const nsAString& aPath,
+      const ChromeFilePropertyBag& aBag, ErrorResult& aRv);
+#endif
 };
 
 }  // namespace dom

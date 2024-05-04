@@ -17,6 +17,7 @@ class FileBlobImpl;
 
 class BaseBlobImpl : public BlobImpl {
   friend class FileBlobImpl;
+  friend class AndroidContentSchemeBlobImpl;
 
  public:
   // File constructor.

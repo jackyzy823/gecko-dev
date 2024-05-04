@@ -6,6 +6,7 @@
 
 #include "FileCreatorParent.h"
 #include "mozilla/dom/FileBlobImpl.h"
+#include "mozilla/dom/AndroidContentSchemeBlobImpl.h"
 #include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/MultipartBlobImpl.h"
 #include "nsIFile.h"
@@ -23,6 +24,10 @@ mozilla::ipc::IPCResult FileCreatorParent::CreateAndShareFile(
     const bool& aIsFromNsIFile) {
   RefPtr<dom::BlobImpl> blobImpl;
   nsresult rv =
+#ifdef ANDROID
+  StringBeginsWith(NS_ConvertUTF16toUTF8(aFullPath), "content://"_ns) ? 
+  CreateContentSchemeBlobImpl(aFullPath, getter_AddRefs(blobImpl)) :
+#endif
       CreateBlobImpl(aFullPath, aType, aName, aLastModified.isSome(),
                      aLastModified.isSome() ? aLastModified.value() : 0,
                      aExistenceCheck, aIsFromNsIFile, getter_AddRefs(blobImpl));
@@ -63,6 +68,14 @@ mozilla::ipc::IPCResult FileCreatorParent::CreateAndShareFile(
 
 void FileCreatorParent::ActorDestroy(ActorDestroyReason aWhy) {
   mIPCActive = false;
+}
+
+/* static */
+nsresult FileCreatorParent::CreateContentSchemeBlobImpl(const nsAString& aPath, BlobImpl** aBlobImpl) {
+  MOZ_ASSERT(!NS_IsMainThread());
+  RefPtr<AndroidContentSchemeBlobImpl> impl = new AndroidContentSchemeBlobImpl(aPath);
+  impl.forget(aBlobImpl);
+  return NS_OK;
 }
 
 /* static */
