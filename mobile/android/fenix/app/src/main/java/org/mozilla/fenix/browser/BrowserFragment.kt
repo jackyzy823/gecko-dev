@@ -106,6 +106,9 @@ class BrowserFragment : BaseBrowserFragment(), UserInteractionHandler {
                     onSwipeStarted = {
                         thumbnailsFeature.get()?.requestScreenshot()
                     },
+                    toolbarPosition = context.settings().toolbarPosition,
+                    browsingModeManager = (activity as HomeActivity).browsingModeManager,
+                    navController = findNavController(),
                 ),
             )
         }

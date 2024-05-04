@@ -35,6 +35,13 @@ import org.mozilla.fenix.ext.settings
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import org.mozilla.fenix.NavGraphDirections
+import org.mozilla.fenix.browser.browsingmode.BrowsingMode
+import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
+import org.mozilla.fenix.components.toolbar.ToolbarPosition
+import androidx.navigation.NavController
+import org.mozilla.fenix.tabstray.Page
+import org.mozilla.fenix.ext.nav
 
 /**
  * Handles intercepting touch events on the toolbar for swipe gestures and executes the
@@ -49,15 +56,20 @@ class ToolbarGestureHandler(
     private val store: BrowserStore,
     private val selectTabUseCase: TabsUseCases.SelectTabUseCase,
     private val onSwipeStarted: () -> Unit,
+    private val toolbarPosition: ToolbarPosition,
+    private val browsingModeManager: BrowsingModeManager,
+    private val navController: NavController,
 ) : SwipeGestureListener {
 
     private enum class GestureDirection {
-        LEFT_TO_RIGHT, RIGHT_TO_LEFT
+        LEFT_TO_RIGHT, RIGHT_TO_LEFT,
+        TOP_TO_BOTTOM, BOTTOM_TO_TOP,
     }
 
     private sealed class Destination {
         data class Tab(val tab: TabSessionState) : Destination()
         object None : Destination()
+        object Tray : Destination()
     }
 
     private val windowWidth: Int
@@ -74,22 +86,38 @@ class ToolbarGestureHandler(
     override fun onSwipeStarted(start: PointF, next: PointF): Boolean {
         val dx = next.x - start.x
         val dy = next.y - start.y
-        gestureDirection = if (dx < 0) {
-            GestureDirection.RIGHT_TO_LEFT
+
+        if ( abs(dx) > abs(dy)){
+          gestureDirection = if (dx < 0) {
+              GestureDirection.RIGHT_TO_LEFT
+          } else {
+              GestureDirection.LEFT_TO_RIGHT
+          }            
         } else {
-            GestureDirection.LEFT_TO_RIGHT
+          gestureDirection = if (dy < 0) {
+              GestureDirection.BOTTOM_TO_TOP
+          } else {
+              GestureDirection.TOP_TO_BOTTOM
+          }                
         }
+
+
 
         @Suppress("ComplexCondition")
         return if (
             !activity.window.decorView.isKeyboardVisible() &&
-            start.isInToolbar() &&
-            abs(dx) > touchSlop &&
-            abs(dy) < abs(dx)
+            start.isInToolbar() 
         ) {
-            preparePreview(getDestination())
-            onSwipeStarted.invoke()
-            true
+            if (abs(dx) > touchSlop && abs(dy) < abs(dx)){
+                preparePreview(getDestination())
+                onSwipeStarted.invoke()
+                true
+            } else if (abs(dy) > touchSlop && abs(dx) < abs(dy)) {
+                true
+            } else {
+                false
+            }
+
         } else {
             false
         }
@@ -110,6 +138,7 @@ class ToolbarGestureHandler(
                         -windowWidth.toFloat() - previewOffset,
                         tabPreview.translationX - distanceX,
                     ).coerceAtMost(0f)
+                    GestureDirection.TOP_TO_BOTTOM , GestureDirection.BOTTOM_TO_TOP -> 0f
                 }
                 contentLayout.translationX = when (gestureDirection) {
                     GestureDirection.RIGHT_TO_LEFT -> min(
@@ -120,6 +149,7 @@ class ToolbarGestureHandler(
                         0f,
                         contentLayout.translationX - distanceX,
                     ).coerceAtMost(windowWidth.toFloat() + previewOffset)
+                    GestureDirection.TOP_TO_BOTTOM , GestureDirection.BOTTOM_TO_TOP -> 0f
                 }
             }
             is Destination.None -> {
@@ -135,8 +165,10 @@ class ToolbarGestureHandler(
                         maxContentHidden.toFloat(),
                         contentLayout.translationX - distanceX,
                     ).coerceAtLeast(0f)
+                    GestureDirection.TOP_TO_BOTTOM , GestureDirection.BOTTOM_TO_TOP -> 0f
                 }
             }
+            is Destination.Tray -> {}
         }
     }
 
@@ -147,12 +179,32 @@ class ToolbarGestureHandler(
         val destination = getDestination()
         if (destination is Destination.Tab && isGestureComplete(velocityX)) {
             animateToNextTab(destination.tab)
+            //} else if(destination is Destination.None && isGestureComplete(velocityX)) {
+            // isLtr gestureDirection is GestureDirection.LEFT_TO_RIGHT
+            // else
+        } else if ( destination is Destination.Tray ) { //&& isGestureComplete(velocityY)
+            val cond1 = gestureDirection == GestureDirection.TOP_TO_BOTTOM && toolbarPosition == ToolbarPosition.TOP
+            val cond2 =  gestureDirection == GestureDirection.BOTTOM_TO_TOP && toolbarPosition == ToolbarPosition.BOTTOM
+            if ( cond1 || cond2 ) {
+                navController.nav(
+                    navController.currentDestination?.id,
+                    NavGraphDirections.actionGlobalTabsTrayFragment(
+                        page = when (browsingModeManager.mode) {
+                            BrowsingMode.Normal -> Page.NormalTabs
+                            BrowsingMode.Private -> Page.PrivateTabs
+                        },
+                    ),
+                )
+            }
         } else {
             animateCanceledGesture(velocityX)
         }
     }
 
     private fun getDestination(): Destination {
+        if (gestureDirection == GestureDirection.TOP_TO_BOTTOM || gestureDirection == GestureDirection.BOTTOM_TO_TOP) {
+            return Destination.Tray
+        }
         val isLtr = activity.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_LTR
         val currentTab = store.state.selectedTab ?: return Destination.None
         val currentIndex =
@@ -175,6 +227,7 @@ class ToolbarGestureHandler(
                 } else {
                     currentIndex + 1
                 }
+                GestureDirection.TOP_TO_BOTTOM , GestureDirection.BOTTOM_TO_TOP -> 0
             }
 
             if (index < tabs.count() && index >= 0) {
@@ -188,7 +241,7 @@ class ToolbarGestureHandler(
     private fun preparePreview(destination: Destination) {
         val (thumbnailId, isPrivate) = when (destination) {
             is Destination.Tab -> destination.tab.id to destination.tab.content.private
-            is Destination.None -> return
+            is Destination.None , Destination.Tray -> return
         }
 
         tabPreview.loadPreviewThumbnail(thumbnailId, isPrivate)
@@ -196,6 +249,7 @@ class ToolbarGestureHandler(
         tabPreview.translationX = when (gestureDirection) {
             GestureDirection.RIGHT_TO_LEFT -> windowWidth.toFloat() + previewOffset
             GestureDirection.LEFT_TO_RIGHT -> -windowWidth.toFloat() - previewOffset
+            GestureDirection.TOP_TO_BOTTOM , GestureDirection.BOTTOM_TO_TOP -> 0f
         }
         tabPreview.isVisible = true
     }
@@ -217,6 +271,9 @@ class ToolbarGestureHandler(
         val velocityMatchesDirection = when (gestureDirection) {
             GestureDirection.RIGHT_TO_LEFT -> velocityX <= 0
             GestureDirection.LEFT_TO_RIGHT -> velocityX >= 0
+            GestureDirection.TOP_TO_BOTTOM , GestureDirection.BOTTOM_TO_TOP -> true
+            //GestureDirection.TOP_TO_BOTTOM -> velocityY >= 0
+            //GestureDirection.BOTTOM_TO_TOP -> velocityY <= 0
         }
         val reverseFling =
             abs(velocityX) >= minimumFlingVelocity && !velocityMatchesDirection
@@ -237,6 +294,7 @@ class ToolbarGestureHandler(
                 tabPreview.translationX = when (gestureDirection) {
                     GestureDirection.RIGHT_TO_LEFT -> value + windowWidth + previewOffset
                     GestureDirection.LEFT_TO_RIGHT -> value - windowWidth - previewOffset
+                    GestureDirection.TOP_TO_BOTTOM , GestureDirection.BOTTOM_TO_TOP -> 0f
                 }
             }
         }
@@ -246,6 +304,7 @@ class ToolbarGestureHandler(
         val browserFinalXCoordinate: Float = when (gestureDirection) {
             GestureDirection.RIGHT_TO_LEFT -> -windowWidth.toFloat() - previewOffset
             GestureDirection.LEFT_TO_RIGHT -> windowWidth.toFloat() + previewOffset
+            GestureDirection.TOP_TO_BOTTOM , GestureDirection.BOTTOM_TO_TOP -> 0f
         }
 
         // Finish animating the contentLayout off screen and tabPreview on screen
